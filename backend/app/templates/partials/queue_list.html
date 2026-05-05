@@ -1,0 +1,51 @@
+<!-- Queue list partial (HTMX polling fragment) -->
+{% if jobs %}
+<div class="space-y-3">
+    {% for job in jobs %}
+    <div class="bg-white rounded-xl border border-gray-200 p-5">
+        <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center gap-3">
+                <h4 class="font-medium text-gray-900 text-sm">
+                    {{ job.video.title if job.video else 'Video #' ~ job.video_id }}
+                </h4>
+                {% if job.status.value == 'complete' %}
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-50 text-green-700">Complete</span>
+                {% elif job.status.value == 'failed' %}
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-50 text-red-700">Failed</span>
+                {% elif job.status.value == 'processing' %}
+                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700">
+                    <span class="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse-dot"></span>
+                    {{ job.step or 'Processing' }}
+                </span>
+                {% else %}
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">Queued</span>
+                {% endif %}
+            </div>
+            <span class="text-xs text-gray-400">{{ job.created_at.strftime('%b %d, %H:%M') if job.created_at else '' }}</span>
+        </div>
+
+        <!-- Progress Bar -->
+        <div class="w-full bg-gray-100 rounded-full h-1.5 mb-3">
+            <div class="h-1.5 rounded-full transition-all duration-500 {{ 'bg-green-500' if job.status.value == 'complete' else ('bg-red-500' if job.status.value == 'failed' else 'bg-blue-500') }}"
+                 style="width: {{ (job.progress or 0) * 100 }}%"></div>
+        </div>
+
+        <!-- Log Toggle -->
+        <button hx-get="/queue/{{ job.id }}/log" hx-target="#log-{{ job.id }}" hx-swap="innerHTML"
+            class="text-xs text-gray-400 hover:text-gray-600">
+            View Logs
+        </button>
+        <div id="log-{{ job.id }}" class="mt-2"></div>
+
+        {% if job.error_message %}
+        <div class="mt-2 text-xs text-red-600 bg-red-50 rounded p-2">{{ job.error_message }}</div>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="bg-white rounded-xl border border-gray-200 p-12 text-center">
+    <p class="text-gray-400 text-sm">No render jobs yet.</p>
+    <a href="/videos/create" class="inline-flex items-center gap-1 mt-2 text-sm text-blue-600 hover:text-blue-700">Create a video →</a>
+</div>
+{% endif %}

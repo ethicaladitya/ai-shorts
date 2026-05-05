@@ -1,0 +1,73 @@
+{% set pct = (job.progress * 100) | int %}
+{% set is_done   = job.status.value == 'complete' %}
+{% set is_failed = job.status.value == 'failed' %}
+{% set is_active = not is_done and not is_failed %}
+
+<div
+    id="avatar-status"
+    {% if is_active %}
+    hx-get="/avatar/{{ job.id }}/status"
+    hx-trigger="every 3s"
+    hx-target="#avatar-status"
+    hx-swap="outerHTML"
+    {% endif %}
+    class="bg-white rounded-xl border border-gray-200 p-6 space-y-4"
+>
+    <!-- Status header -->
+    <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+            {% if is_done %}
+            <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-50 text-green-700">
+                Complete
+            </span>
+            {% elif is_failed %}
+            <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-50 text-red-700">
+                Failed
+            </span>
+            {% else %}
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium bg-blue-50 text-blue-700">
+                <span class="w-2 h-2 bg-blue-500 rounded-full animate-pulse-dot"></span>
+                {{ job.step | replace('_', ' ') | title if job.step else 'Starting…' }}
+            </span>
+            {% endif %}
+        </div>
+        <span class="text-sm font-semibold text-gray-700">{{ pct }}%</span>
+    </div>
+
+    <!-- Progress bar -->
+    <div class="w-full bg-gray-100 rounded-full h-2">
+        <div class="h-2 rounded-full transition-all duration-700
+            {{ 'bg-green-500' if is_done else ('bg-red-500' if is_failed else 'bg-blue-500') }}"
+            style="width: {{ pct }}%">
+        </div>
+    </div>
+
+    <!-- Output video (when complete) -->
+    {% if is_done and job.output_file %}
+    <div class="pt-2">
+        <video controls playsinline
+            class="w-full max-w-sm mx-auto rounded-xl shadow-sm"
+            style="max-height: 480px;">
+            <source src="/output/{{ job.output_file.split('/')[-1] }}" type="video/mp4">
+        </video>
+        <div class="flex justify-center mt-3">
+            <a href="/output/{{ job.output_file.split('/')[-1] }}" download
+                class="inline-flex items-center gap-2 px-4 py-2 bg-gray-900 text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                </svg>
+                Download Video
+            </a>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Log -->
+    {% if job.log %}
+    <details class="text-xs">
+        <summary class="cursor-pointer text-gray-400 hover:text-gray-600 select-none">View logs</summary>
+        <pre class="mt-2 font-mono bg-gray-900 text-green-400 p-4 rounded-lg overflow-auto max-h-56 whitespace-pre-wrap">{{ job.log }}</pre>
+    </details>
+    {% endif %}
+</div>

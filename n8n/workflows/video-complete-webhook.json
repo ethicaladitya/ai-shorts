@@ -1,0 +1,55 @@
+{
+  "name": "AI Shorts - New Video Notification",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ai-shorts-complete",
+        "responseMode": "onReceived",
+        "responseData": "allEntries"
+      },
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.status }}",
+              "value2": "complete"
+            }
+          ]
+        }
+      },
+      "name": "Check Status",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "const item = items[0].json;\nreturn [{\n  json: {\n    title: item.title,\n    video_id: item.video_id,\n    status: item.status,\n    message: `Video \"${item.title}\" (ID: ${item.video_id}) has been rendered successfully.`,\n    output_file: item.output_file\n  }\n}];"
+      },
+      "name": "Format Message",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [650, 250]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [{"node": "Check Status", "type": "main", "index": 0}]
+      ]
+    },
+    "Check Status": {
+      "main": [
+        [{"node": "Format Message", "type": "main", "index": 0}],
+        []
+      ]
+    }
+  }
+}

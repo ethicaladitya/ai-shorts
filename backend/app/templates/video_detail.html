@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block title %}{{ video.title }}{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <div class="flex items-center gap-2 text-sm text-gray-400 mb-2">
+        <a href="/" class="hover:text-gray-600">Dashboard</a>
+        <span>→</span>
+        <span class="text-gray-600">{{ video.title }}</span>
+    </div>
+    <div class="flex items-center justify-between">
+        <h2 class="text-2xl font-bold text-gray-900">{{ video.title }}</h2>
+        {% if video.status.value == 'complete' %}
+        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-50 text-green-700">Complete</span>
+        {% elif video.status.value == 'failed' %}
+        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-50 text-red-700">Failed</span>
+        {% else %}
+        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium bg-blue-50 text-blue-700">
+            <span class="w-2 h-2 bg-blue-500 rounded-full animate-pulse-dot"></span>
+            {{ video.status.value | replace('_', ' ') | title }}
+        </span>
+        {% endif %}
+    </div>
+</div>
+
+<div class="grid grid-cols-3 gap-6">
+    <div class="col-span-2 space-y-6">
+        <!-- Script -->
+        {% if video.script_raw %}
+        <div class="bg-white rounded-xl border border-gray-200 p-6">
+            <h3 class="font-semibold text-gray-900 mb-3">Script</h3>
+            <pre class="whitespace-pre-wrap text-sm text-gray-800 leading-relaxed">{{ video.script_raw }}</pre>
+        </div>
+        {% endif %}
+
+        {% if video.script_formatted %}
+        <div class="bg-white rounded-xl border border-gray-200 p-6">
+            <h3 class="font-semibold text-gray-900 mb-3">Formatted Script</h3>
+            <pre class="whitespace-pre-wrap text-sm text-gray-800 leading-relaxed bg-gray-50 rounded-lg p-4">{{ video.script_formatted }}</pre>
+        </div>
+        {% endif %}
+
+        <!-- Output Video -->
+        {% if video.output_file %}
+        <div class="bg-white rounded-xl border border-gray-200 p-6">
+            <h3 class="font-semibold text-gray-900 mb-3">Output Video</h3>
+            <video controls class="w-full rounded-lg max-w-md mx-auto">
+                <source src="/output/{{ video.output_file.split('/')[-1] }}" type="video/mp4">
+            </video>
+        </div>
+        {% endif %}
+
+        {% if video.error_message %}
+        <div class="bg-red-50 border border-red-200 rounded-xl p-6">
+            <h3 class="font-semibold text-red-800 mb-2">Error</h3>
+            <p class="text-sm text-red-700">{{ video.error_message }}</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Sidebar -->
+    <div class="space-y-4">
+        <div class="bg-white rounded-xl border border-gray-200 p-5">
+            <h4 class="font-semibold text-gray-900 text-sm mb-3">Details</h4>
+            <dl class="space-y-2 text-sm">
+                <div><dt class="text-gray-400">Topic</dt><dd class="text-gray-900">{{ video.topic }}</dd></div>
+                {% if video.selected_hook %}
+                <div><dt class="text-gray-400">Hook</dt><dd class="text-gray-900">{{ video.selected_hook }}</dd></div>
+                {% endif %}
+                <div><dt class="text-gray-400">Created</dt><dd class="text-gray-900">{{ video.created_at.strftime('%b %d, %Y %H:%M') if video.created_at else 'N/A' }}</dd></div>
+            </dl>
+        </div>
+
+        <div class="bg-white rounded-xl border border-gray-200 p-5">
+            <h4 class="font-semibold text-gray-900 text-sm mb-3">Actions</h4>
+            <div class="space-y-2">
+                <a href="/videos/{{ video.id }}/hooks" class="block w-full text-left px-3 py-2 text-sm text-gray-700 bg-gray-50 rounded-lg hover:bg-gray-100">View Hooks</a>
+                <a href="/videos/{{ video.id }}/editor" class="block w-full text-left px-3 py-2 text-sm text-gray-700 bg-gray-50 rounded-lg hover:bg-gray-100">Edit Script</a>
+                <form action="/videos/{{ video.id }}/run-pipeline" method="POST">
+                    <button type="submit" class="w-full text-left px-3 py-2 text-sm text-white bg-gray-900 rounded-lg hover:bg-gray-800">
+                        🚀 Run Full Pipeline
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

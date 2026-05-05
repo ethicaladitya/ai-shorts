@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Knowledge Panel{% endblock %}
+
+{% block content %}
+<div class="mb-8">
+    <h2 class="text-2xl font-bold text-gray-900">Knowledge Panel</h2>
+    <p class="text-gray-500 text-sm mt-1">Configure your AI's context: examples, tone, sources, and preferences</p>
+</div>
+
+{% for cat_key, cat_data in grouped.items() %}
+<div class="bg-white rounded-xl border border-gray-200 mb-6">
+    <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+        <div>
+            <h3 class="font-semibold text-gray-900">{{ cat_data.label }}</h3>
+            <p class="text-xs text-gray-400 mt-0.5">
+                {% if cat_key == 'examples' %}Past scripts and examples the AI can reference{% endif %}
+                {% if cat_key == 'tone' %}Voice and tone instructions for script generation{% endif %}
+                {% if cat_key == 'sources' %}WordPress and RSS feed URLs for content{% endif %}
+                {% if cat_key == 'cta' %}Preferred call-to-action styles{% endif %}
+                {% if cat_key == 'prompts' %}Custom prompt additions{% endif %}
+                {% if cat_key == 'audience' %}Target audience profile{% endif %}
+            </p>
+        </div>
+        <button onclick="document.getElementById('form-{{ cat_key }}').classList.toggle('hidden')"
+            class="text-xs px-3 py-1.5 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition">
+            + Add
+        </button>
+    </div>
+
+    <!-- Add Form (hidden by default) -->
+    <div id="form-{{ cat_key }}" class="hidden px-6 py-4 bg-gray-50 border-b border-gray-100">
+        <form hx-post="/knowledge/add" hx-target="#entries-{{ cat_key }}" hx-swap="beforeend"
+              hx-on::after-request="this.reset()">
+            <input type="hidden" name="category" value="{{ cat_key }}">
+            <div class="grid grid-cols-3 gap-3">
+                <input type="text" name="title" placeholder="Title (optional)"
+                    class="px-3 py-2 border border-gray-200 rounded-lg text-sm">
+                <textarea name="content" placeholder="Content *" required rows="2"
+                    class="col-span-2 px-3 py-2 border border-gray-200 rounded-lg text-sm resize-none"></textarea>
+            </div>
+            <button type="submit" class="mt-2 px-4 py-2 text-sm bg-gray-900 text-white rounded-lg hover:bg-gray-800">Save</button>
+        </form>
+    </div>
+
+    <!-- Entries -->
+    <div class="px-6 py-4" id="entries-{{ cat_key }}">
+        {% if cat_data.entries %}
+            {% for entry in cat_data.entries %}
+            <div class="flex items-center justify-between bg-white border border-gray-200 rounded-lg p-3 mb-2 {{ '' if entry.is_active else 'opacity-50' }}" id="entry-{{ entry.id }}">
+                <div>
+                    <span class="font-medium text-gray-900">{{ entry.title or "Untitled" }}</span>
+                    <p class="text-sm text-gray-600 mt-1">{{ entry.content[:200] }}</p>
+                </div>
+                <div class="flex gap-2 flex-shrink-0 ml-4">
+                    <button hx-post="/knowledge/{{ entry.id }}/toggle" hx-target="#entry-{{ entry.id }}" hx-swap="outerHTML"
+                        class="text-xs px-2 py-1 bg-gray-100 rounded hover:bg-gray-200">
+                        {{ "Disable" if entry.is_active else "Enable" }}
+                    </button>
+                    <button hx-delete="/knowledge/{{ entry.id }}" hx-target="#entry-{{ entry.id }}" hx-swap="outerHTML"
+                        hx-confirm="Delete this entry?"
+                        class="text-xs px-2 py-1 bg-red-50 text-red-600 rounded hover:bg-red-100">
+                        Delete
+                    </button>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <p class="text-sm text-gray-400 py-2">No entries yet. Click "+ Add" above.</p>
+        {% endif %}
+    </div>
+</div>
+{% endfor %}
+{% endblock %}

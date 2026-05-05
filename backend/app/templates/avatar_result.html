@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block title %}Avatar Job #{{ job.id }}{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <div class="flex items-center gap-2 text-sm text-gray-400 mb-2">
+        <a href="/avatar" class="hover:text-gray-600">Avatar Video</a>
+        <span>→</span>
+        <span class="text-gray-600">Job #{{ job.id }}</span>
+    </div>
+    <div class="flex items-center justify-between">
+        <h2 class="text-2xl font-bold text-gray-900 truncate max-w-xl">{{ job.topic }}</h2>
+    </div>
+</div>
+
+<div class="grid grid-cols-3 gap-6">
+    <!-- Main content -->
+    <div class="col-span-2 space-y-6">
+
+        <!-- Live status (HTMX polling) -->
+        <div
+            id="avatar-status"
+            {% if job.status.value not in ['complete', 'failed'] %}
+            hx-get="/avatar/{{ job.id }}/status"
+            hx-trigger="every 3s"
+            hx-target="#avatar-status"
+            hx-swap="outerHTML"
+            {% endif %}
+        >
+            {% include "partials/avatar_status.html" %}
+        </div>
+
+        <!-- Script (when available) -->
+        {% if job.script %}
+        <div class="bg-white rounded-xl border border-gray-200 p-6">
+            <h3 class="font-semibold text-gray-900 mb-3">Generated Script</h3>
+            <pre class="whitespace-pre-wrap text-sm text-gray-800 leading-relaxed bg-gray-50 rounded-lg p-4">{{ job.script }}</pre>
+        </div>
+        {% endif %}
+
+        {% if job.error_message %}
+        <div class="bg-red-50 border border-red-200 rounded-xl p-6">
+            <h3 class="font-semibold text-red-800 mb-2">Error</h3>
+            <p class="text-sm text-red-700 font-mono">{{ job.error_message }}</p>
+            <a href="/avatar" class="inline-flex items-center gap-1 mt-3 text-sm text-red-700 hover:text-red-900 font-medium">
+                ← Try again
+            </a>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Sidebar -->
+    <div class="space-y-4">
+        <div class="bg-white rounded-xl border border-gray-200 p-5">
+            <h4 class="font-semibold text-gray-900 text-sm mb-3">Job Details</h4>
+            <dl class="space-y-2 text-sm">
+                <div>
+                    <dt class="text-gray-400 text-xs">Topic</dt>
+                    <dd class="text-gray-900">{{ job.topic }}</dd>
+                </div>
+                {% if job.custom_notes %}
+                <div>
+                    <dt class="text-gray-400 text-xs">Notes</dt>
+                    <dd class="text-gray-600 text-xs">{{ job.custom_notes }}</dd>
+                </div>
+                {% endif %}
+                <div>
+                    <dt class="text-gray-400 text-xs">Created</dt>
+                    <dd class="text-gray-900">{{ job.created_at.strftime('%b %d, %Y %H:%M') if job.created_at else '—' }}</dd>
+                </div>
+                {% if job.did_talk_id %}
+                <div>
+                    <dt class="text-gray-400 text-xs">D-ID Talk ID</dt>
+                    <dd class="text-gray-600 text-xs font-mono truncate">{{ job.did_talk_id }}</dd>
+                </div>
+                {% endif %}
+            </dl>
+        </div>
+
+        <div class="bg-white rounded-xl border border-gray-200 p-5">
+            <h4 class="font-semibold text-gray-900 text-sm mb-3">Actions</h4>
+            <div class="space-y-2">
+                <a href="/avatar"
+                    class="block w-full text-center px-3 py-2 text-sm text-gray-700 bg-gray-50 rounded-lg hover:bg-gray-100">
+                    ← New Avatar Video
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

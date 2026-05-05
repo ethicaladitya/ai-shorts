@@ -1,0 +1,19 @@
+<!-- Script editor partial (HTMX fragment) -->
+<div class="bg-white rounded-xl border border-gray-200 p-6">
+    <div class="flex items-center justify-between mb-4">
+        <h3 class="font-semibold text-gray-900">Script</h3>
+        <div id="save-status" class="text-sm"></div>
+    </div>
+    <form hx-post="/videos/{{ video.id }}/update-script" hx-target="#save-status" hx-swap="innerHTML">
+        <textarea name="script" rows="16"
+            class="w-full px-4 py-3 border border-gray-200 rounded-lg text-sm font-mono leading-relaxed focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent resize-y"
+        >{{ video.script_raw }}</textarea>
+        <div class="flex items-center gap-3 mt-3">
+            <button type="submit"
+                class="px-4 py-2 text-sm bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition font-medium">
+                Save Script
+            </button>
+            <span class="text-xs text-gray-400">Changes are saved manually</span>
+        </div>
+    </form>
+</div>

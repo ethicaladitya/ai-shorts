@@ -1,0 +1,118 @@
+version: "3.8"
+
+# =============================================================================
+# AI Shorts System — Docker Compose
+# Project: ai_shorts_system
+# Network: ai_shorts_network
+# =============================================================================
+
+networks:
+  ai_shorts_network:
+    name: ai_shorts_network
+    driver: bridge
+
+volumes:
+  ai_shorts_data:
+    name: ai_shorts_data
+  n8n_data:
+    name: ai_shorts_n8n_data
+  voicebox_data:
+    name: ai_shorts_voicebox_data
+  huggingface_cache:
+    name: ai_shorts_huggingface_cache
+
+services:
+  # ---------------------------------------------------------------------------
+  # Backend API (FastAPI)
+  # ---------------------------------------------------------------------------
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: ai-shorts-backend
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${UI_PORT:-8787}:8000"
+      - "127.0.0.1:${API_PORT:-8788}:8000"
+    volumes:
+      - ai_shorts_data:/app/data
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=sqlite:///./data/ai_shorts.db
+    networks:
+      - ai_shorts_network
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2G
+        reservations:
+          cpus: "0.5"
+          memory: 512M
+    healthcheck:
+      test: ["CMD", "python", "-c", "import httpx; r=httpx.get('http://localhost:8000/health'); r.raise_for_status()"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+  # ---------------------------------------------------------------------------
+  # n8n Workflow Automation
+  # ---------------------------------------------------------------------------
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:latest
+    container_name: ai-shorts-n8n
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${N8N_PORT:-8789}:5678"
+    volumes:
+      - n8n_data:/home/node/.n8n
+    environment:
+      - N8N_HOST=0.0.0.0
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=https
+      - NODE_ENV=production
+      - WEBHOOK_URL=https://video.theadityashah.com/n8n/
+      - N8N_PATH=/n8n/
+      - N8N_EDITOR_BASE_URL=https://video.theadityashah.com/n8n/
+    networks:
+      - ai_shorts_network
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1G
+        reservations:
+          cpus: "0.25"
+          memory: 256M
+
+  # ---------------------------------------------------------------------------
+  # Voicebox — Local TTS (https://github.com/jamiepine/voicebox)
+  # Only started when COMPOSE_PROFILES=voicebox (or --profile voicebox).
+  # First startup downloads the Kokoro model (~750 MB) from HuggingFace.
+  # ---------------------------------------------------------------------------
+  voicebox:
+    image: ghcr.io/jamiepine/voicebox:latest
+    container_name: ai-shorts-voicebox
+    restart: unless-stopped
+    # No external port mapping — only the backend container needs to call it
+    # via http://voicebox:17493 on the shared Docker network.
+    volumes:
+      - voicebox_data:/app/data
+      - huggingface_cache:/home/voicebox/.cache/huggingface
+    environment:
+      - LOG_LEVEL=info
+      - NUMBA_CACHE_DIR=/tmp/numba_cache
+    networks:
+      - ai_shorts_network
+    profiles:
+      - voicebox
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 4G
+        reservations:
+          cpus: "0.5"
+          memory: 512M

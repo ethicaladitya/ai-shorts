@@ -1,0 +1,297 @@
+{
+  "id": "ai-shorts-automation-v1",
+  "name": "AI Shorts — Full Automation Pipeline",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 9 * * 1-5"
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Daily Schedule (9am Mon–Fri)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {},
+      "id": "manual-trigger",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [240, 460]
+    },
+    {
+      "parameters": {
+        "url": "={{ $vars.WP_API_URL || 'https://theadityashah.com/wp-json/wp/v2/posts' }}",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "per_page", "value": "1" },
+            { "name": "orderby", "value": "date" },
+            { "name": "order", "value": "desc" },
+            { "name": "_fields", "value": "id,title,link,excerpt,date" }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "fetch-wp-post",
+      "name": "Fetch Latest WordPress Post",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 380]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "has-post",
+              "leftValue": "={{ $json.id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "check-has-post",
+      "name": "Has Post?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [700, 380]
+    },
+    {
+      "parameters": {
+        "jsCode": "const post = $input.first().json;\nreturn [\n  {\n    json: {\n      topic: post.title?.rendered || post.title || 'AI & Tech Insights',\n      wordpress_url: post.link || '',\n      custom_notes: `Based on: ${(post.excerpt?.rendered || '').replace(/<[^>]+>/g, '').trim().slice(0, 300)}`,\n      source_title: post.title?.rendered || post.title || ''\n    }\n  }\n];"
+      },
+      "id": "prepare-payload",
+      "name": "Prepare API Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [920, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://ai-shorts-backend:8000/videos/create",
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            { "name": "topic", "value": "={{ $json.topic }}" },
+            { "name": "wordpress_url", "value": "={{ $json.wordpress_url }}" },
+            { "name": "custom_notes", "value": "={{ $json.custom_notes }}" }
+          ]
+        },
+        "options": {
+          "redirect": {
+            "redirect": {
+              "followRedirects": false
+            }
+          },
+          "response": {
+            "response": {
+              "responseFormat": "text",
+              "fullResponse": true
+            }
+          }
+        }
+      },
+      "id": "create-video",
+      "name": "Create Video Job",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1140, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const resp = $input.first().json;\nconst statusCode = resp.statusCode || 0;\nconst isSuccess = statusCode >= 200 && statusCode < 400;\nconst locationHeader = resp.headers?.location || '';\nconst videoId = locationHeader.match(/\\/videos\\/(\\d+)\\//)?.[1] || 'unknown';\nreturn [\n  {\n    json: {\n      success: isSuccess,\n      video_id: videoId,\n      status_code: statusCode,\n      redirect_url: locationHeader,\n      message: isSuccess\n        ? `Video job created (ID: ${videoId}). Pipeline running in background.`\n        : `Failed to create video. HTTP ${statusCode}`\n    }\n  }\n];"
+      },
+      "id": "parse-response",
+      "name": "Parse Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1360, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "id": "is-success",
+              "leftValue": "={{ $json.success }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "true" }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "check-success",
+      "name": "Success?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [1580, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [\n  {\n    json: {\n      log: `[${new Date().toISOString()}] Video pipeline started: ${$input.first().json.message}`,\n      video_id: $input.first().json.video_id\n    }\n  }\n];"
+      },
+      "id": "log-success",
+      "name": "Log Success",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1800, 220]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [\n  {\n    json: {\n      log: `[${new Date().toISOString()}] ERROR: ${$input.first().json.message}`,\n      status_code: $input.first().json.status_code\n    }\n  }\n];"
+      },
+      "id": "log-error",
+      "name": "Log Error",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1800, 380]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [\n  {\n    json: {\n      log: `[${new Date().toISOString()}] Schedule ran but no WordPress post found to process.`\n    }\n  }\n];"
+      },
+      "id": "log-no-post",
+      "name": "Log: No Post Found",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [920, 480]
+    },
+
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ai-shorts-complete",
+        "responseMode": "onReceived",
+        "responseData": "allEntries"
+      },
+      "id": "completion-webhook",
+      "name": "Video Completion Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 680]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "id": "check-complete",
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "complete",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "check-complete",
+      "name": "Is Complete?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [480, 680]
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\nreturn [\n  {\n    json: {\n      notification: {\n        title: `✅ Video ready: ${item.title || 'Untitled'}`,\n        video_id: item.video_id,\n        output_file: item.output_file || '',\n        url: `https://video.theadityashah.com/videos/${item.video_id}`\n      },\n      log: `[${new Date().toISOString()}] Video ${item.video_id} completed: ${item.title}`\n    }\n  }\n];"
+      },
+      "id": "format-notification",
+      "name": "Format Notification",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [700, 620]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [\n  {\n    json: {\n      log: `[${new Date().toISOString()}] Webhook received but status is not 'complete': ${$input.first().json.status}`\n    }\n  }\n];"
+      },
+      "id": "log-incomplete",
+      "name": "Log: Not Complete",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [700, 760]
+    }
+  ],
+  "connections": {
+    "Daily Schedule (9am Mon–Fri)": {
+      "main": [[{ "node": "Fetch Latest WordPress Post", "type": "main", "index": 0 }]]
+    },
+    "Manual Trigger": {
+      "main": [[{ "node": "Fetch Latest WordPress Post", "type": "main", "index": 0 }]]
+    },
+    "Fetch Latest WordPress Post": {
+      "main": [[{ "node": "Has Post?", "type": "main", "index": 0 }]]
+    },
+    "Has Post?": {
+      "main": [
+        [{ "node": "Prepare API Payload", "type": "main", "index": 0 }],
+        [{ "node": "Log: No Post Found", "type": "main", "index": 0 }]
+      ]
+    },
+    "Prepare API Payload": {
+      "main": [[{ "node": "Create Video Job", "type": "main", "index": 0 }]]
+    },
+    "Create Video Job": {
+      "main": [[{ "node": "Parse Response", "type": "main", "index": 0 }]]
+    },
+    "Parse Response": {
+      "main": [[{ "node": "Success?", "type": "main", "index": 0 }]]
+    },
+    "Success?": {
+      "main": [
+        [{ "node": "Log Success", "type": "main", "index": 0 }],
+        [{ "node": "Log Error", "type": "main", "index": 0 }]
+      ]
+    },
+    "Video Completion Webhook": {
+      "main": [[{ "node": "Is Complete?", "type": "main", "index": 0 }]]
+    },
+    "Is Complete?": {
+      "main": [
+        [{ "node": "Format Notification", "type": "main", "index": 0 }],
+        [{ "node": "Log: Not Complete", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": ""
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "updatedAt": "2026-04-18T00:00:00.000Z",
+  "versionId": "1"
+}

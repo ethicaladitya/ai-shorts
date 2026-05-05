@@ -1,0 +1,10 @@
+.git
+__pycache__
+*.pyc
+*.pyo
+.env
+data/
+*.db
+.DS_Store
+.vscode
+.idea
