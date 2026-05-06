@@ -49,6 +49,9 @@ class Settings(BaseSettings):
     mai_voice_api_key: str = ""
     mai_voice_name: str = "MAI-Voice-1"
 
+    # Stable Diffusion (local A1111 — shared with persona system)
+    sd_base_url: str = "http://localhost:7860"
+
     # Pexels (stock footage)
     pexels_api_key: str = ""
 
@@ -77,6 +80,32 @@ class Settings(BaseSettings):
     # n8n
     n8n_webhook_url: str = ""
 
+    # ── UGC Video Engine ───────────────────────────────────────────────────────
+    # Preset: free | balanced | quality (overridden by individual vars below)
+    ugc_mode: str = "free"
+    ugc_script_provider: str = ""     # ollama | azure_openai  (empty = resolve from ugc_mode)
+    ugc_image_provider: str = ""      # a1111 | comfyui | azure_gpt_image
+    ugc_voice_provider: str = ""      # kokoro | elevenlabs | azure_tts
+    ugc_head_provider: str = ""       # sadtalker | slideshow | replicate | did
+    ugc_assembly_provider: str = "ffmpeg"
+
+    # Local service endpoints
+    ollama_base_url: str = "http://localhost:11434"
+    ollama_model: str = "llama3.1"
+    comfyui_base_url: str = "http://localhost:8188"
+    comfyui_workflow_path: str = ""   # custom workflow JSON path; uses bundled default if empty
+
+    # Local SadTalker CLI path
+    ugc_sadtalker_cli_path: str = ""  # e.g. /opt/homebrew/bin/sadtalker
+
+    # Approval behaviour
+    ugc_approval_mode: str = "cli"    # cli | auto | webhook
+    ugc_approval_webhook_url: str = ""
+
+    # Output paths
+    ugc_output_dir: Path = Path("/app/data/output/ugc-videos")
+    ugc_temp_dir: Path = Path("/app/data/temp/ugc-jobs")
+
     # Google OAuth
     google_client_id: str = ""
     google_client_secret: str = ""
@@ -91,5 +120,8 @@ class Settings(BaseSettings):
 settings = Settings()
 
 # Ensure directories exist
-for d in [settings.data_dir, settings.output_dir, settings.temp_dir, settings.assets_dir]:
+for d in [
+    settings.data_dir, settings.output_dir, settings.temp_dir, settings.assets_dir,
+    settings.ugc_output_dir, settings.ugc_temp_dir,
+]:
     d.mkdir(parents=True, exist_ok=True)

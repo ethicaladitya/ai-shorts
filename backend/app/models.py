@@ -122,6 +122,62 @@ class AvatarJob(Base):
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
 
+class UGCJobStatus(str, enum.Enum):
+    PENDING = "pending"
+    GENERATING_SCRIPT = "generating_script"
+    GENERATING_IMAGES = "generating_images"
+    GENERATING_VOICE = "generating_voice"
+    AWAITING_APPROVAL = "awaiting_approval"
+    RENDERING_HEAD = "rendering_head"
+    GENERATING_SUBTITLES = "generating_subtitles"
+    ASSEMBLING = "assembling"
+    COMPLETE = "complete"
+    FAILED = "failed"
+
+
+class UGCJob(Base):
+    __tablename__ = "ugc_jobs"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    # Job inputs
+    persona_name = Column(String(200), nullable=False, default="default")
+    topic = Column(String(500))
+    style = Column(String(50), default="ugc")        # ugc | selfie | casual-vlog
+    platform = Column(String(50), default="tiktok")  # tiktok | reels | shorts
+    duration_target = Column(Integer, default=30)    # 15 | 30 | 60
+
+    # Resolved providers (snapshotted at job creation)
+    script_provider = Column(String(50))
+    image_provider = Column(String(50))
+    voice_provider = Column(String(50))
+    head_provider = Column(String(50))
+
+    # Generated content
+    script_raw = Column(Text)
+    script_formatted = Column(Text)
+    scene_images = Column(JSON, default=list)         # list of file paths
+    voice_file = Column(String(500))
+    talking_head_file = Column(String(500))
+    subtitle_file = Column(String(500))
+    output_file = Column(String(500))
+    thumbnail_file = Column(String(500))
+
+    # Progress tracking
+    status = Column(Enum(UGCJobStatus), default=UGCJobStatus.PENDING)
+    step = Column(String(100))
+    progress = Column(Float, default=0.0)
+    log = Column(Text, default="")
+    estimated_cost = Column(Float, default=0.0)
+
+    # Approval checkpoint state (set by checkpoint_ui)
+    approval_decision = Column(String(50))           # approve | regenerate_script | regenerate_image
+
+    error_message = Column(Text)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+
 class AppSettings(Base):
     __tablename__ = "app_settings"
 
