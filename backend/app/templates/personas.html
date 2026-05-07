@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block title %}Personas{% endblock %}
+{% block content %}
+
+<div class="mb-6 flex items-center justify-between">
+    <div>
+        <h2 class="text-2xl font-bold text-gray-900">Personas</h2>
+        <p class="text-sm text-gray-500 mt-1">Manage AI model accounts, voice, content &amp; automation</p>
+    </div>
+    <a href="/personas/new"
+       class="px-4 py-2 bg-gray-900 text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition">
+        + New Persona
+    </a>
+</div>
+
+{% if personas %}
+<div class="grid grid-cols-1 gap-4">
+    {% for p in personas %}
+    <div class="bg-white rounded-xl border border-gray-200 p-5 flex items-center gap-5">
+
+        <!-- Avatar -->
+        <div class="w-16 h-16 rounded-full bg-gray-100 flex-shrink-0 overflow-hidden">
+            {% if p.reference_image_path %}
+            <img src="/static/persona-img/{{ p.persona_name }}" class="w-full h-full object-cover" onerror="this.style.display='none'">
+            {% else %}
+            <div class="w-full h-full flex items-center justify-center text-2xl text-gray-300">👤</div>
+            {% endif %}
+        </div>
+
+        <!-- Info -->
+        <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2 mb-1">
+                <h3 class="font-semibold text-gray-900">{{ p.display_name }}</h3>
+                <span class="text-xs text-gray-400">@{{ p.persona_name }}</span>
+                {% if not p.is_active %}
+                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs bg-gray-100 text-gray-500">paused</span>
+                {% endif %}
+            </div>
+            <p class="text-sm text-gray-500 truncate mb-2">{{ p.bio or "No bio yet" }}</p>
+            <div class="flex items-center gap-3 text-xs text-gray-400">
+                {% if p.instagram_username %}
+                <span>📸 @{{ p.instagram_username }}</span>
+                {% endif %}
+                {% if p.onlyfans_username %}
+                <span>🔞 @{{ p.onlyfans_username }}</span>
+                {% endif %}
+                {% if p.tiktok_username %}
+                <span>🎵 @{{ p.tiktok_username }}</span>
+                {% endif %}
+                {% if not p.instagram_username and not p.onlyfans_username and not p.tiktok_username %}
+                <span class="text-amber-500">No accounts linked</span>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Stats -->
+        <div class="flex gap-6 text-center flex-shrink-0">
+            <div>
+                <p class="text-lg font-bold text-gray-900">{{ p.total_videos }}</p>
+                <p class="text-xs text-gray-400">videos</p>
+            </div>
+            <div>
+                <p class="text-lg font-bold text-gray-900">{{ p.total_posts }}</p>
+                <p class="text-xs text-gray-400">posts</p>
+            </div>
+            <div>
+                <p class="text-lg font-bold {% if p.total_cost_usd == 0 %}text-green-600{% else %}text-amber-600{% endif %}">
+                    ${{ "%.2f"|format(p.total_cost_usd) }}
+                </p>
+                <p class="text-xs text-gray-400">spent</p>
+            </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="flex gap-2 flex-shrink-0">
+            <a href="/ugc/create?persona={{ p.persona_name }}"
+               class="px-3 py-1.5 bg-gray-900 text-white text-xs font-medium rounded-lg hover:bg-gray-800">
+                + Video
+            </a>
+            <a href="/personas/{{ p.persona_name }}"
+               class="px-3 py-1.5 border border-gray-200 text-gray-700 text-xs font-medium rounded-lg hover:bg-gray-50">
+                Manage
+            </a>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+{% else %}
+<div class="bg-white rounded-xl border border-dashed border-gray-200 p-12 text-center">
+    <p class="text-4xl mb-4">👤</p>
+    <h3 class="text-lg font-semibold text-gray-900 mb-2">No personas yet</h3>
+    <p class="text-sm text-gray-500 mb-6">Create a persona to start generating content for an AI model account.</p>
+    <a href="/personas/new" class="px-4 py-2 bg-gray-900 text-white text-sm font-medium rounded-lg hover:bg-gray-800">
+        Create First Persona
+    </a>
+</div>
+{% endif %}
+
+{% endblock %}

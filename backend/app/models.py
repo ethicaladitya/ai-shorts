@@ -179,3 +179,84 @@ class AppSettings(Base):
     key = Column(String(200), unique=True, nullable=False, index=True)
     value = Column(Text)
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+
+class CostLog(Base):
+    """Every billable API call recorded here — one row per event."""
+    __tablename__ = "cost_log"
+
+    id = Column(Integer, primary_key=True, index=True)
+    persona_name = Column(String(200), default="default", index=True)
+    job_type = Column(String(50), index=True)   # ugc | avatar | video | image | voice | lipsync
+    job_id = Column(Integer, index=True)         # FK to the job table (loose — no FK constraint)
+    provider = Column(String(100))               # azure_gpt_image | elevenlabs | hedra | ...
+    operation = Column(String(200))              # e.g. "generate_image", "tts", "lipsync"
+    cost_usd = Column(Float, default=0.0)
+    units = Column(Float, default=1.0)           # images generated, characters, seconds, etc.
+    unit_label = Column(String(50), default="call")  # "image" | "chars" | "seconds" | "call"
+    note = Column(String(500))
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), index=True)
+
+
+class PersonaAccount(Base):
+    """Links a persona to its social media accounts and tracks per-persona state."""
+    __tablename__ = "persona_accounts"
+
+    id = Column(Integer, primary_key=True, index=True)
+    persona_name = Column(String(200), unique=True, nullable=False, index=True)
+    display_name = Column(String(200))
+    bio = Column(Text)
+    reference_image_path = Column(String(500))
+
+    # Social account IDs
+    instagram_user_id = Column(String(200))
+    instagram_username = Column(String(200))
+    onlyfans_username = Column(String(200))
+    tiktok_username = Column(String(200))
+
+    # Secrets stored as env-key references (never stored raw in DB)
+    instagram_token_env = Column(String(200))    # env var name holding the token
+    onlyfans_cookie_env = Column(String(200))
+
+    # Voice + content config
+    voice_provider = Column(String(100), default="voicebox")
+    voice_profile_id = Column(String(200))       # Voicebox profile UUID
+    content_style = Column(String(100), default="ugc")
+    dm_auto_reply = Column(Boolean, default=False)
+    dm_guardrails = Column(Text)                 # JSON list of forbidden topics
+
+    # Stats
+    total_cost_usd = Column(Float, default=0.0)
+    total_posts = Column(Integer, default=0)
+    total_videos = Column(Integer, default=0)
+
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+
+class DMThread(Base):
+    """Incoming DM threads from any platform, with auto-reply state."""
+    __tablename__ = "dm_threads"
+
+    id = Column(Integer, primary_key=True, index=True)
+    persona_name = Column(String(200), index=True)
+    platform = Column(String(50))               # instagram | onlyfans
+    external_thread_id = Column(String(300), unique=True, index=True)
+    sender_handle = Column(String(300))
+    sender_id = Column(String(300))
+
+    last_message = Column(Text)
+    last_message_at = Column(DateTime)
+    category = Column(String(50))               # cold | warm | high_value | auto_reply
+    confidence = Column(Float, default=0.0)
+
+    # Reply state
+    suggested_replies = Column(Text)            # JSON list of 3 variants
+    approved_reply = Column(Text)
+    reply_sent = Column(Boolean, default=False)
+    reply_sent_at = Column(DateTime)
+    auto_replied = Column(Boolean, default=False)
+
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))

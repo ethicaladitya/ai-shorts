@@ -11,6 +11,7 @@ from pathlib import Path
 from app.config import settings
 from app.database import SessionLocal
 from app.models import UGCJob, UGCJobStatus
+from app.services.cost_tracker import record_cost, estimate_cost as _est_cost
 from app.services.ugc.checkpoint_ui import run_checkpoint
 from app.services.ugc.config.defaults import (
     PLATFORM_PRESETS,
@@ -102,6 +103,10 @@ async def _run_stages(db, job: UGCJob, providers: dict[str, str], tmp_path: Path
     job.script_raw = script.raw
     job.script_formatted = script.raw  # formatted = cleaned in voice_service
     db.commit()
+    record_cost(providers["script"], "generate_script",
+                _est_cost(providers["script"], units=script.word_count * 1.3, unit_type="tokens"),
+                persona_name=job.persona_name, job_type="ugc", job_id=job.id,
+                units=script.word_count * 1.3, unit_label="tokens", db=db)
     _update_job(db, job, UGCJobStatus.GENERATING_SCRIPT, "generate_script", 0.20,
                 f"Script ready: {script.word_count} words")
 
@@ -119,6 +124,10 @@ async def _run_stages(db, job: UGCJob, providers: dict[str, str], tmp_path: Path
     )
     job.scene_images = json.dumps([str(p) for p in scene_images])
     db.commit()
+    record_cost(providers["image"], "generate_images",
+                _est_cost(providers["image"], units=len(scene_images), unit_type="image"),
+                persona_name=job.persona_name, job_type="ugc", job_id=job.id,
+                units=len(scene_images), unit_label="image", db=db)
     _update_job(db, job, UGCJobStatus.GENERATING_IMAGES, "generate_images", 0.35,
                 f"Generated {len(scene_images)} scene images")
 
@@ -132,6 +141,10 @@ async def _run_stages(db, job: UGCJob, providers: dict[str, str], tmp_path: Path
     )
     job.voice_file = str(audio_path)
     db.commit()
+    record_cost(providers["voice"], "generate_voice",
+                _est_cost(providers["voice"], units=len(script.raw), unit_type="chars"),
+                persona_name=job.persona_name, job_type="ugc", job_id=job.id,
+                units=len(script.raw), unit_label="chars", db=db)
     _update_job(db, job, UGCJobStatus.GENERATING_VOICE, "generate_voice", 0.50,
                 f"Voice ready: {audio_path.name}")
 
@@ -203,6 +216,10 @@ async def _run_stages(db, job: UGCJob, providers: dict[str, str], tmp_path: Path
     if talking_head_clip:
         job.talking_head_file = str(talking_head_clip)
         db.commit()
+        record_cost(providers["head"], "talking_head",
+                    _est_cost(providers["head"], units=1, unit_type="video"),
+                    persona_name=job.persona_name, job_type="ugc", job_id=job.id,
+                    units=1, unit_label="video", db=db)
         _update_job(db, job, UGCJobStatus.RENDERING_HEAD, "render_head", 0.65,
                     "Talking head ready")
     else:

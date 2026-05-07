@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+{% block title %}{{ "Edit" if persona else "New" }} Persona{% endblock %}
+{% block content %}
+
+<div class="mb-6">
+    <a href="/personas/" class="text-sm text-gray-400 hover:text-gray-600">← Personas</a>
+    <h2 class="text-2xl font-bold text-gray-900 mt-2">{{ "Edit" if persona else "New" }} Persona</h2>
+</div>
+
+<form action="{{ '/api/personas/' + persona.persona_name if persona else '/api/personas' }}"
+      method="post" enctype="multipart/form-data" class="grid grid-cols-3 gap-6">
+
+    <!-- Left: core identity -->
+    <div class="col-span-2 space-y-4">
+        <div class="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+            <h3 class="text-sm font-semibold text-gray-700 border-b border-gray-100 pb-2">Identity</h3>
+
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">Persona ID <span class="text-gray-400">(slug, no spaces)</span></label>
+                    <input type="text" name="persona_name" required
+                           value="{{ persona.persona_name if persona else '' }}"
+                           {{ 'readonly class="bg-gray-50"' if persona else '' }}
+                           placeholder="e.g. luna_rose"
+                           class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-900">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">Display Name</label>
+                    <input type="text" name="display_name"
+                           value="{{ persona.display_name if persona else '' }}"
+                           placeholder="e.g. Luna Rose"
+                           class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-900">
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">Bio / Persona Description</label>
+                <textarea name="bio" rows="3" placeholder="Short, casual bio for the persona. Used in DM replies and captions."
+                          class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 resize-none">{{ persona.bio if persona else '' }}</textarea>
+            </div>
+
+            <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">Reference Image</label>
+                <input type="file" name="reference_image" accept="image/*"
+                       class="text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-gray-900 file:text-white hover:file:bg-gray-800">
+                {% if persona and persona.reference_image_path %}
+                <p class="text-xs text-gray-400 mt-1">Current: {{ persona.reference_image_path.split('/')[-1] }}</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Social accounts -->
+        <div class="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+            <h3 class="text-sm font-semibold text-gray-700 border-b border-gray-100 pb-2">Social Accounts</h3>
+            <div class="grid grid-cols-3 gap-4">
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">📸 Instagram Username</label>
+                    <input type="text" name="instagram_username"
+                           value="{{ persona.instagram_username if persona else '' }}"
+                           placeholder="luna.rose.ai"
+                           class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-900">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">🔞 OnlyFans Username</label>
+                    <input type="text" name="onlyfans_username"
+                           value="{{ persona.onlyfans_username if persona else '' }}"
+                           placeholder="lunarose"
+                           class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-900">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">🎵 TikTok Username</label>
+                    <input type="text" name="tiktok_username"
+                           value="{{ persona.tiktok_username if persona else '' }}"
+                           placeholder="luna.rose.ai"
+                           class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-900">
+                </div>
+            </div>
+            <p class="text-xs text-gray-400">API tokens are set in .env per persona (INSTAGRAM_ACCESS_TOKEN_LUNAROSE, etc)</p>
+        </div>
+
+        <!-- DM automation -->
+        <div class="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+            <h3 class="text-sm font-semibold text-gray-700 border-b border-gray-100 pb-2">DM Automation</h3>
+
+            <label class="flex items-center gap-3 cursor-pointer">
+                <input type="checkbox" name="dm_auto_reply" value="true"
+                       {{ 'checked' if persona and persona.dm_auto_reply else '' }}
+                       class="w-4 h-4 rounded border-gray-300 text-gray-900">
+                <span class="text-sm text-gray-700">Auto-reply to cold / simple DMs</span>
+            </label>
+
+            <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">
+                    Guardrail topics <span class="text-gray-400">(one per line — never discuss these)</span>
+                </label>
+                <textarea name="dm_guardrails_raw" rows="4"
+                          placeholder="meet in person&#10;real name&#10;home address&#10;payment outside platform"
+                          class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 resize-none font-mono">{{ (persona.dm_guardrails | join('\n')) if persona else '' }}</textarea>
+                <p class="text-xs text-gray-400 mt-1">Global guardrails (meet in person, real name, etc) always apply on top of these.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right: voice + content -->
+    <div class="space-y-4">
+        <div class="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
+            <h3 class="text-sm font-semibold text-gray-700 border-b border-gray-100 pb-2">Voice</h3>
+            <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">Provider</label>
+                <select name="voice_provider" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-900">
+                    <option value="voicebox" {{ 'selected' if not persona or persona.voice_provider == 'voicebox' else '' }}>Voicebox (Local)</option>
+                    <option value="kokoro" {{ 'selected' if persona and persona.voice_provider == 'kokoro' else '' }}>Kokoro (Local)</option>
+                    <option value="elevenlabs" {{ 'selected' if persona and persona.voice_provider == 'elevenlabs' else '' }}>ElevenLabs</option>
+                    <option value="azure_openai" {{ 'selected' if persona and persona.voice_provider == 'azure_openai' else '' }}>Azure TTS</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">Voicebox Profile ID</label>
+                <input type="text" name="voice_profile_id"
+                       value="{{ persona.voice_profile_id if persona else '' }}"
+                       placeholder="31f59009-635c-48c9-aa2a-4c80bc0afae2"
+                       class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-gray-900">
+                <p class="text-xs text-gray-400 mt-1">Find in Voicebox app → Profiles</p>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
+            <h3 class="text-sm font-semibold text-gray-700 border-b border-gray-100 pb-2">Content</h3>
+            <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">Default Style</label>
+                <select name="content_style" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-900">
+                    <option value="ugc" {{ 'selected' if not persona or persona.content_style == 'ugc' else '' }}>UGC / Creator</option>
+                    <option value="casual-vlog" {{ 'selected' if persona and persona.content_style == 'casual-vlog' else '' }}>Casual Vlog</option>
+                    <option value="lifestyle" {{ 'selected' if persona and persona.content_style == 'lifestyle' else '' }}>Lifestyle</option>
+                    <option value="promo" {{ 'selected' if persona and persona.content_style == 'promo' else '' }}>Product Promo</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="bg-blue-50 border border-blue-100 rounded-xl p-4 text-xs text-blue-700 space-y-1">
+            <p class="font-semibold text-blue-800">How it works</p>
+            <p>1. Create persona + upload reference image</p>
+            <p>2. Link social accounts (set tokens in .env)</p>
+            <p>3. Generate UGC videos → auto-post to IG/OF/TikTok</p>
+            <p>4. DMs come in → AI classifies + auto-replies with guardrails</p>
+            <p>5. All $ spent tracked per-persona</p>
+        </div>
+
+        <button type="submit"
+                class="w-full px-4 py-2.5 bg-gray-900 text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition">
+            {{ "Save Changes" if persona else "Create Persona" }}
+        </button>
+    </div>
+</form>
+
+<script>
+// Convert guardrails textarea → JSON before submit
+document.querySelector('form').addEventListener('submit', function(e) {
+    const raw = document.querySelector('[name=dm_guardrails_raw]').value;
+    const lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
+    const hidden = document.createElement('input');
+    hidden.type = 'hidden';
+    hidden.name = 'dm_guardrails';
+    hidden.value = JSON.stringify(lines);
+    this.appendChild(hidden);
+    document.querySelector('[name=dm_guardrails_raw]').disabled = true;
+});
+</script>
+{% endblock %}

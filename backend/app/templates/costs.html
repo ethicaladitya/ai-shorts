@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% block title %}Cost Tracker{% endblock %}
+{% block content %}
+
+<div class="mb-6 flex items-center justify-between">
+    <div>
+        <h2 class="text-2xl font-bold text-gray-900">Cost Tracker</h2>
+        <p class="text-sm text-gray-500 mt-1">Every $ spent across all AI operations</p>
+    </div>
+    <div class="text-right">
+        <p class="text-3xl font-bold {% if total_usd == 0 %}text-green-600{% else %}text-gray-900{% endif %}">
+            ${{ "%.4f"|format(total_usd) }}
+        </p>
+        <p class="text-xs text-gray-400">total all-time spend</p>
+    </div>
+</div>
+
+<!-- Top row -->
+<div class="grid grid-cols-2 gap-6 mb-6">
+
+    <!-- By persona -->
+    <div class="bg-white rounded-xl border border-gray-200 p-5">
+        <h3 class="text-sm font-semibold text-gray-700 mb-4">By Persona</h3>
+        {% if by_persona %}
+        <div class="space-y-2">
+            {% for row in by_persona %}
+            <div class="flex items-center justify-between">
+                <span class="text-sm text-gray-600">{{ row.persona }}</span>
+                <span class="text-sm font-medium {% if row.total_usd == 0 %}text-green-600{% else %}text-gray-900{% endif %}">
+                    ${{ "%.4f"|format(row.total_usd) }}
+                </span>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-sm text-gray-400">No costs recorded yet.</p>
+        {% endif %}
+    </div>
+
+    <!-- By provider -->
+    <div class="bg-white rounded-xl border border-gray-200 p-5">
+        <h3 class="text-sm font-semibold text-gray-700 mb-4">By Provider</h3>
+        {% if by_provider %}
+        <div class="space-y-2">
+            {% for row in by_provider %}
+            <div class="flex items-center justify-between">
+                <span class="inline-flex items-center gap-1.5">
+                    <span class="w-2 h-2 rounded-full {% if row.total_usd == 0 %}bg-green-400{% else %}bg-amber-400{% endif %}"></span>
+                    <span class="text-sm text-gray-600">{{ row.provider }}</span>
+                </span>
+                <span class="text-sm font-medium {% if row.total_usd == 0 %}text-green-600{% else %}text-gray-900{% endif %}">
+                    ${{ "%.4f"|format(row.total_usd) }}
+                </span>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-sm text-gray-400">No costs recorded yet.</p>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Spend over time -->
+{% if by_day %}
+<div class="bg-white rounded-xl border border-gray-200 p-5 mb-6">
+    <h3 class="text-sm font-semibold text-gray-700 mb-4">Last 30 Days</h3>
+    <div class="flex items-end gap-1 h-24">
+        {% set max_val = by_day | map(attribute='total_usd') | max %}
+        {% for row in by_day %}
+        <div class="flex-1 flex flex-col items-center gap-1 group relative">
+            <div class="w-full bg-gray-900 rounded-sm"
+                 style="height: {{ ((row.total_usd / (max_val or 0.0001)) * 80)|int }}px; min-height: 2px;">
+            </div>
+            <span class="text-[9px] text-gray-400 rotate-45 origin-left hidden group-hover:block absolute -bottom-4">{{ row.day[-5:] }}</span>
+        </div>
+        {% endfor %}
+    </div>
+    <div class="flex justify-between text-xs text-gray-400 mt-5">
+        <span>{{ by_day[0].day if by_day else '' }}</span>
+        <span>{{ by_day[-1].day if by_day else '' }}</span>
+    </div>
+</div>
+{% endif %}
+
+<!-- Event log -->
+<div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+    <div class="px-5 py-4 border-b border-gray-100">
+        <h3 class="text-sm font-semibold text-gray-700">Recent Events</h3>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead class="bg-gray-50 text-xs text-gray-500 uppercase">
+                <tr>
+                    <th class="px-4 py-2 text-left">When</th>
+                    <th class="px-4 py-2 text-left">Persona</th>
+                    <th class="px-4 py-2 text-left">Job</th>
+                    <th class="px-4 py-2 text-left">Provider</th>
+                    <th class="px-4 py-2 text-left">Operation</th>
+                    <th class="px-4 py-2 text-right">Cost</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-50">
+                {% for e in recent %}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-4 py-2 text-gray-400 whitespace-nowrap">{{ e.created_at[:16] if e.created_at else '—' }}</td>
+                    <td class="px-4 py-2 font-medium text-gray-700">{{ e.persona }}</td>
+                    <td class="px-4 py-2 text-gray-500">{{ e.job_type }}{% if e.job_id %}#{{ e.job_id }}{% endif %}</td>
+                    <td class="px-4 py-2">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium
+                            {% if e.cost_usd == 0 %}bg-green-50 text-green-700{% else %}bg-amber-50 text-amber-700{% endif %}">
+                            {{ e.provider }}
+                        </span>
+                    </td>
+                    <td class="px-4 py-2 text-gray-600">{{ e.operation }}</td>
+                    <td class="px-4 py-2 text-right font-mono font-medium {% if e.cost_usd == 0 %}text-green-600{% else %}text-gray-900{% endif %}">
+                        {% if e.cost_usd == 0 %}FREE{% else %}${{ "%.4f"|format(e.cost_usd) }}{% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="6" class="px-4 py-8 text-center text-gray-400">No cost events yet. Run a UGC job to start tracking.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

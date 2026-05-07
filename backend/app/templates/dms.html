@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block title %}DM Inbox{% endblock %}
+{% block content %}
+
+<div class="mb-6 flex items-center justify-between">
+    <div>
+        <h2 class="text-2xl font-bold text-gray-900">DM Inbox</h2>
+        <p class="text-sm text-gray-500 mt-1">Incoming messages from Instagram &amp; OnlyFans — AI classified &amp; reply-ready</p>
+    </div>
+    <div class="flex gap-2 text-xs text-gray-500">
+        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-green-50 text-green-700">● auto_reply</span>
+        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-blue-50 text-blue-700">● warm</span>
+        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-50 text-amber-700">● high_value</span>
+        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-gray-100 text-gray-500">● cold</span>
+        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-red-50 text-red-600">● blocked</span>
+    </div>
+</div>
+
+{% if threads %}
+<div class="space-y-3">
+    {% for t in threads %}
+    <div class="bg-white rounded-xl border border-gray-200 p-5" id="thread-{{ t.id }}">
+        <div class="flex items-start gap-4">
+
+            <!-- Platform icon -->
+            <div class="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0
+                {% if t.platform == 'instagram' %}bg-pink-100{% else %}bg-blue-100{% endif %}">
+                {{ "📸" if t.platform == "instagram" else "🔞" }}
+            </div>
+
+            <!-- Message + meta -->
+            <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2 mb-1">
+                    <span class="font-medium text-gray-900 text-sm">{{ t.sender }}</span>
+                    <span class="text-xs text-gray-400">via {{ t.platform }}</span>
+                    <span class="text-xs text-gray-300">·</span>
+                    <span class="text-xs text-gray-400">{{ t.last_message_at[:16] if t.last_message_at else '' }}</span>
+                    {% if t.category %}
+                    <span class="ml-auto inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
+                        {% if t.category == 'auto_reply' %}bg-green-50 text-green-700
+                        {% elif t.category == 'warm' %}bg-blue-50 text-blue-700
+                        {% elif t.category == 'high_value' %}bg-amber-50 text-amber-700
+                        {% elif t.category == 'blocked' %}bg-red-50 text-red-600
+                        {% else %}bg-gray-100 text-gray-500{% endif %}">
+                        {{ t.category }}
+                        {% if t.confidence %}<span class="ml-1 opacity-60">{{ (t.confidence * 100)|int }}%</span>{% endif %}
+                    </span>
+                    {% endif %}
+                    <span class="text-xs text-gray-400">{{ t.persona }}</span>
+                </div>
+
+                <p class="text-sm text-gray-700 mb-3">{{ t.last_message }}</p>
+
+                {% if t.reply_sent %}
+                <div class="flex items-center gap-1.5 text-xs text-green-600">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                    </svg>
+                    {{ "Auto-replied" if t.auto_replied else "Replied" }}
+                </div>
+
+                {% elif t.suggested_replies %}
+                <div class="space-y-2">
+                    <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Suggested replies</p>
+                    {% for reply in t.suggested_replies %}
+                    <div class="flex items-start gap-2 group">
+                        <p class="flex-1 text-sm text-gray-600 bg-gray-50 rounded-lg px-3 py-2 border border-gray-100">
+                            {{ reply }}
+                        </p>
+                        <form method="post" action="/dms/threads/{{ t.id }}/send" class="flex-shrink-0">
+                            <input type="hidden" name="reply" value="{{ reply }}">
+                            <button type="submit"
+                                    class="px-3 py-2 bg-gray-900 text-white text-xs font-medium rounded-lg hover:bg-gray-800 whitespace-nowrap">
+                                Send
+                            </button>
+                        </form>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                {% elif t.category == 'blocked' %}
+                <p class="text-xs text-red-500">Blocked by guardrail — not replying.</p>
+
+                {% else %}
+                <p class="text-xs text-gray-400 italic">Classifying…</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+{% else %}
+<div class="bg-white rounded-xl border border-dashed border-gray-200 p-12 text-center">
+    <p class="text-4xl mb-4">💬</p>
+    <h3 class="text-lg font-semibold text-gray-900 mb-2">No DMs yet</h3>
+    <p class="text-sm text-gray-500 mb-4 max-w-sm mx-auto">
+        DMs appear here once the Instagram webhook is connected. Set
+        <code class="bg-gray-100 px-1 rounded">INSTAGRAM_WEBHOOK_VERIFY_TOKEN</code> in .env
+        and point your IG app webhook to
+        <code class="bg-gray-100 px-1 rounded">/dms/webhook/instagram</code>.
+    </p>
+    <div class="text-left bg-gray-50 rounded-lg p-4 max-w-md mx-auto text-xs font-mono text-gray-600 space-y-1">
+        <p># .env</p>
+        <p>INSTAGRAM_USER_ID=your_ig_user_id</p>
+        <p>INSTAGRAM_ACCESS_TOKEN=your_page_token</p>
+        <p>INSTAGRAM_WEBHOOK_VERIFY_TOKEN=aishorts_verify</p>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}

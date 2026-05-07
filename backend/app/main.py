@@ -13,6 +13,9 @@ from app.database import init_db, get_db
 from app.routers import dashboard, videos, scripts, knowledge, render, settings as settings_router
 from app.routers.avatar import router as avatar_router
 from app.routers.ugc import router as ugc_router
+from app.routers.costs import router as costs_router
+from app.routers.personas import router as personas_router
+from app.routers.dms import router as dms_router
 from app.models import KnowledgeEntry
 import importlib.util
 from app.routers.auth import router as auth_router
@@ -61,6 +64,9 @@ app.include_router(render.router)
 app.include_router(settings_router.router)
 app.include_router(avatar_router)
 app.include_router(ugc_router)
+app.include_router(costs_router)
+app.include_router(personas_router)
+app.include_router(dms_router)
 app.mount("/persona_media", StaticFiles(directory="data/persona_media"), name="persona_media")
 
 # ── Persona System — mounted at /persona/ ──────────────────────────────────

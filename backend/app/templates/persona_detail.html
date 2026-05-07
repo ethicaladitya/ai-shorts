@@ -1,0 +1,201 @@
+{% extends "base.html" %}
+{% block title %}{{ persona.display_name }}{% endblock %}
+{% block content %}
+
+<div class="mb-6 flex items-center justify-between">
+    <div>
+        <a href="/personas/" class="text-sm text-gray-400 hover:text-gray-600">← Personas</a>
+        <h2 class="text-2xl font-bold text-gray-900 mt-2">{{ persona.display_name }}</h2>
+        <p class="text-sm text-gray-400">@{{ persona.persona_name }}</p>
+    </div>
+    <div class="flex gap-2">
+        <a href="/ugc/create?persona={{ persona.persona_name }}"
+           class="px-4 py-2 bg-gray-900 text-white text-sm font-medium rounded-lg hover:bg-gray-800">
+            + Generate Video
+        </a>
+        <a href="/personas/{{ persona.persona_name }}/edit"
+           class="px-4 py-2 border border-gray-200 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50">
+            Edit
+        </a>
+    </div>
+</div>
+
+<!-- Stats row -->
+<div class="grid grid-cols-4 gap-4 mb-6">
+    <div class="bg-white rounded-xl border border-gray-200 p-4 text-center">
+        <p class="text-2xl font-bold text-gray-900">{{ persona.total_videos }}</p>
+        <p class="text-xs text-gray-400 mt-1">Videos Generated</p>
+    </div>
+    <div class="bg-white rounded-xl border border-gray-200 p-4 text-center">
+        <p class="text-2xl font-bold text-gray-900">{{ persona.total_posts }}</p>
+        <p class="text-xs text-gray-400 mt-1">Posts Published</p>
+    </div>
+    <div class="bg-white rounded-xl border border-gray-200 p-4 text-center">
+        <p class="text-2xl font-bold {% if persona.total_cost_usd == 0 %}text-green-600{% else %}text-amber-600{% endif %}">
+            ${{ "%.3f"|format(persona.total_cost_usd) }}
+        </p>
+        <p class="text-xs text-gray-400 mt-1">Total Spent</p>
+    </div>
+    <div class="bg-white rounded-xl border border-gray-200 p-4 text-center">
+        <p class="text-2xl font-bold {% if persona.dm_auto_reply %}text-green-600{% else %}text-gray-400{% endif %}">
+            {{ "ON" if persona.dm_auto_reply else "OFF" }}
+        </p>
+        <p class="text-xs text-gray-400 mt-1">DM Auto-Reply</p>
+    </div>
+</div>
+
+<div class="grid grid-cols-3 gap-6">
+    <!-- Left: accounts + config -->
+    <div class="space-y-4">
+        <!-- Accounts -->
+        <div class="bg-white rounded-xl border border-gray-200 p-5">
+            <h3 class="text-sm font-semibold text-gray-700 mb-3">Linked Accounts</h3>
+            <div class="space-y-2 text-sm">
+                {% if persona.instagram_username %}
+                <div class="flex items-center gap-2">
+                    <span class="text-lg">📸</span>
+                    <span class="text-gray-700">@{{ persona.instagram_username }}</span>
+                    <span class="ml-auto text-xs px-2 py-0.5 rounded {% if persona.instagram_username %}bg-green-50 text-green-700{% else %}bg-gray-100 text-gray-400{% endif %}">linked</span>
+                </div>
+                {% endif %}
+                {% if persona.onlyfans_username %}
+                <div class="flex items-center gap-2">
+                    <span class="text-lg">🔞</span>
+                    <span class="text-gray-700">@{{ persona.onlyfans_username }}</span>
+                    <span class="ml-auto text-xs px-2 py-0.5 rounded bg-green-50 text-green-700">linked</span>
+                </div>
+                {% endif %}
+                {% if persona.tiktok_username %}
+                <div class="flex items-center gap-2">
+                    <span class="text-lg">🎵</span>
+                    <span class="text-gray-700">@{{ persona.tiktok_username }}</span>
+                    <span class="ml-auto text-xs px-2 py-0.5 rounded bg-green-50 text-green-700">linked</span>
+                </div>
+                {% endif %}
+                {% if not persona.instagram_username and not persona.onlyfans_username and not persona.tiktok_username %}
+                <p class="text-gray-400 text-xs">No accounts linked. <a href="/personas/{{ persona.persona_name }}/edit" class="underline">Edit</a> to add.</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Voice -->
+        <div class="bg-white rounded-xl border border-gray-200 p-5">
+            <h3 class="text-sm font-semibold text-gray-700 mb-3">Voice</h3>
+            <div class="text-sm space-y-1">
+                <div class="flex justify-between">
+                    <span class="text-gray-500">Provider</span>
+                    <span class="font-medium text-gray-900">{{ persona.voice_provider }}</span>
+                </div>
+                {% if persona.voice_profile_id %}
+                <div class="flex justify-between">
+                    <span class="text-gray-500">Profile</span>
+                    <span class="font-mono text-xs text-gray-600">{{ persona.voice_profile_id[:8] }}…</span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Guardrails -->
+        {% if persona.dm_guardrails %}
+        <div class="bg-white rounded-xl border border-gray-200 p-5">
+            <h3 class="text-sm font-semibold text-gray-700 mb-3">DM Guardrails</h3>
+            <ul class="space-y-1">
+                {% for g in persona.dm_guardrails %}
+                <li class="text-xs text-gray-500 flex items-center gap-1.5">
+                    <span class="w-1.5 h-1.5 rounded-full bg-red-400 flex-shrink-0"></span>{{ g }}
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Middle: recent videos -->
+    <div class="col-span-2 space-y-4">
+        <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+                <h3 class="text-sm font-semibold text-gray-700">Recent UGC Jobs</h3>
+                <a href="/ugc/?persona={{ persona.persona_name }}" class="text-xs text-gray-400 hover:text-gray-700">View all →</a>
+            </div>
+            {% if recent_jobs %}
+            <table class="w-full text-sm">
+                <thead class="bg-gray-50 text-xs text-gray-500 uppercase">
+                    <tr>
+                        <th class="px-4 py-2 text-left">Topic</th>
+                        <th class="px-4 py-2 text-left">Platform</th>
+                        <th class="px-4 py-2 text-left">Status</th>
+                        <th class="px-4 py-2 text-right">Cost</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-50">
+                    {% for j in recent_jobs %}
+                    <tr class="hover:bg-gray-50 cursor-pointer" onclick="location.href='/ugc/jobs/{{ j.id }}'">
+                        <td class="px-4 py-2 font-medium text-gray-800 max-w-xs truncate">{{ j.topic }}</td>
+                        <td class="px-4 py-2 text-gray-500">{{ j.platform }}</td>
+                        <td class="px-4 py-2">
+                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium
+                                {% if j.status == 'complete' %}bg-green-50 text-green-700
+                                {% elif j.status == 'failed' %}bg-red-50 text-red-700
+                                {% else %}bg-blue-50 text-blue-700{% endif %}">
+                                {{ j.status }}
+                            </span>
+                        </td>
+                        <td class="px-4 py-2 text-right font-mono text-xs {% if j.cost == 0 %}text-green-600{% else %}text-amber-600{% endif %}">
+                            {% if j.cost == 0 %}FREE{% else %}${{ "%.3f"|format(j.cost) }}{% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="px-5 py-8 text-center">
+                <p class="text-gray-400 text-sm">No videos yet.</p>
+                <a href="/ugc/create?persona={{ persona.persona_name }}"
+                   class="mt-3 inline-block px-4 py-2 bg-gray-900 text-white text-xs font-medium rounded-lg hover:bg-gray-800">
+                    Generate First Video
+                </a>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Cost log -->
+        <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+                <h3 class="text-sm font-semibold text-gray-700">Cost Log</h3>
+                <a href="/costs/?persona={{ persona.persona_name }}" class="text-xs text-gray-400 hover:text-gray-700">Full report →</a>
+            </div>
+            {% if costs %}
+            <table class="w-full text-sm">
+                <thead class="bg-gray-50 text-xs text-gray-500 uppercase">
+                    <tr>
+                        <th class="px-4 py-2 text-left">When</th>
+                        <th class="px-4 py-2 text-left">Provider</th>
+                        <th class="px-4 py-2 text-left">Operation</th>
+                        <th class="px-4 py-2 text-right">Cost</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-50">
+                    {% for c in costs[:15] %}
+                    <tr>
+                        <td class="px-4 py-2 text-gray-400 text-xs">{{ c.created_at[:16] if c.created_at else '—' }}</td>
+                        <td class="px-4 py-2">
+                            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs
+                                {% if c.cost_usd == 0 %}bg-green-50 text-green-700{% else %}bg-amber-50 text-amber-700{% endif %}">
+                                {{ c.provider }}
+                            </span>
+                        </td>
+                        <td class="px-4 py-2 text-gray-600 text-xs">{{ c.operation }}</td>
+                        <td class="px-4 py-2 text-right font-mono text-xs {% if c.cost_usd == 0 %}text-green-600{% else %}text-gray-900{% endif %}">
+                            {% if c.cost_usd == 0 %}FREE{% else %}${{ "%.4f"|format(c.cost_usd) }}{% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p class="px-5 py-6 text-center text-gray-400 text-sm">No cost events yet.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
