@@ -569,9 +569,10 @@ def get_voice_provider(provider_name: str = "azure_openai", **kwargs) -> VoicePr
     elif provider_name == "openai":
         return OpenAIVoiceProvider(api_key=kwargs.get("openai_api_key", ""))
     elif provider_name == "elevenlabs":
+        from app.config import settings as _s
         return ElevenLabsVoiceProvider(
-            api_key=kwargs.get("elevenlabs_api_key", ""),
-            voice_id=kwargs.get("elevenlabs_voice_id", "21m00Tcm4TlvDq8ikWAM"),
+            api_key=kwargs.get("elevenlabs_api_key", _s.elevenlabs_api_key),
+            voice_id=kwargs.get("elevenlabs_voice_id", _s.elevenlabs_voice_id),
         )
     elif provider_name == "azure_speech":
         return AzureSpeechVoiceProvider(
@@ -580,15 +581,17 @@ def get_voice_provider(provider_name: str = "azure_openai", **kwargs) -> VoicePr
             voice=kwargs.get("azure_speech_voice", "en-US-JennyNeural"),
         )
     elif provider_name == "voicebox":
+        from app.config import settings as _s
         return VoiceboxVoiceProvider(
-            url=kwargs.get("voicebox_url", "http://localhost:17493"),
-            engine=kwargs.get("voicebox_engine", "kokoro"),
-            profile_id=kwargs.get("voicebox_profile_id", ""),
+            url=kwargs.get("voicebox_url", _s.voicebox_url),
+            engine=kwargs.get("voicebox_engine", _s.voicebox_engine),
+            profile_id=kwargs.get("voicebox_profile_id", _s.voicebox_profile_id),
         )
     elif provider_name == "kokoro":
+        from app.config import settings as _s
         return KokoroVoiceProvider(
-            model_dir=kwargs.get("kokoro_model_dir", "/app/data/kokoro"),
-            voice=kwargs.get("kokoro_voice", "af_sky"),
+            model_dir=kwargs.get("kokoro_model_dir", _s.kokoro_model_dir),
+            voice=kwargs.get("kokoro_voice", _s.kokoro_voice),
         )
     else:
         raise ValueError(f"Unknown voice provider: {provider_name}")

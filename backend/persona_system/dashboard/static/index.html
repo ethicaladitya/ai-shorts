@@ -536,6 +536,16 @@
                         <input type="text" id="setting-elevenlabs-voice-id" placeholder="cgSgspJ2msm6clMCkdW9">
                     </div>
                     <div class="form-group">
+                        <label>Clone a Voice (ElevenLabs Instant Clone)</label>
+                        <p style="font-size: 0.75rem; color: var(--text-dim); margin-bottom: 0.5rem;">Upload 1–5 minutes of clean audio (MP3/WAV). The cloned voice ID is auto-saved above.</p>
+                        <input type="text" id="clone-voice-name" placeholder="Voice name (e.g. Mia — Warm & Sensual)" style="margin-bottom:0.5rem;">
+                        <input type="file" id="clone-voice-file" accept="audio/*" multiple style="margin-bottom:0.5rem; font-size:0.8rem;">
+                        <button onclick="cloneVoice()" class="btn btn-secondary" style="font-size:0.8rem;">
+                            <i class="fas fa-microphone-alt"></i> Clone Voice
+                        </button>
+                        <span id="clone-voice-status" style="font-size:0.75rem; color: var(--text-dim); margin-left:0.5rem;"></span>
+                    </div>
+                    <div class="form-group">
                         <label>Image Generator</label>
                         <select id="setting-image-provider">
                             <option value="gpt-image-2">Azure GPT-Image-2 (Recommended — best consistency)</option>
@@ -1222,6 +1232,46 @@
 
     // Init
     window.onload = refreshData;
+
+    async function cloneVoice() {
+        const name = document.getElementById('clone-voice-name').value.trim();
+        const fileInput = document.getElementById('clone-voice-file');
+        const status = document.getElementById('clone-voice-status');
+
+        if (!name) { status.textContent = '⚠ Enter a voice name first.'; return; }
+        if (!fileInput.files.length) { status.textContent = '⚠ Select at least one audio file.'; return; }
+
+        const apiKey = document.getElementById('setting-elevenlabs-key')?.value.trim()
+            || document.getElementById('setting-elevenlabs-voice-id')?.dataset?.apiKey || '';
+
+        status.textContent = 'Cloning… this may take 10–30s';
+
+        const fd = new FormData();
+        fd.append('name', name);
+        for (const f of fileInput.files) fd.append('files', f);
+
+        try {
+            const resp = await fetch('/api/voice/clone', { method: 'POST', body: fd });
+            const data = await resp.json();
+            if (data.voice_id) {
+                document.getElementById('setting-elevenlabs-voice-id').value = data.voice_id;
+                status.textContent = `✓ Cloned! Voice ID: ${data.voice_id}`;
+                status.style.color = 'var(--success)';
+                // Auto-save the new voice_id into settings
+                await fetch('/api/settings', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ elevenlabs_voice_id: data.voice_id }),
+                });
+            } else {
+                status.textContent = '✗ ' + (data.error || 'Clone failed');
+                status.style.color = 'var(--danger)';
+            }
+        } catch (e) {
+            status.textContent = '✗ ' + e.message;
+            status.style.color = 'var(--danger)';
+        }
+    }
 </script>
 </body>
 </html>
