@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import uuid
 from datetime import datetime, timezone
@@ -116,7 +117,7 @@ async def _run_stages(db, job: UGCJob, providers: dict[str, str], tmp_path: Path
         count=4,
         provider=providers["image"],
     )
-    job.scene_images = [str(p) for p in scene_images]
+    job.scene_images = json.dumps([str(p) for p in scene_images])
     db.commit()
     _update_job(db, job, UGCJobStatus.GENERATING_IMAGES, "generate_images", 0.35,
                 f"Generated {len(scene_images)} scene images")
@@ -177,7 +178,7 @@ async def _run_stages(db, job: UGCJob, providers: dict[str, str], tmp_path: Path
             persona=persona, style=job.style, platform=job.platform,
             output_dir=images_dir, count=4, provider=providers["image"],
         )
-        job.scene_images = [str(p) for p in scene_images]
+        job.scene_images = json.dumps([str(p) for p in scene_images])
         db.commit()
 
     # ── Stage 5: Talking head (optional) ─────────────────────────────────────
