@@ -156,15 +156,32 @@ async def generate_scene_images(
         scene_seed = seed + i if seed != -1 else -1
 
         try:
+            png_bytes: bytes | None = None
+
             if provider == "comfyui":
-                png_bytes = await _comfyui_generate(positive, negative, width, height, scene_seed)
+                try:
+                    png_bytes = await _comfyui_generate(positive, negative, width, height, scene_seed)
+                except Exception as comfy_exc:
+                    logger.warning("ComfyUI failed (%s) — falling back to azure_gpt_image", comfy_exc)
+
+            elif provider == "azure_gpt_image":
+                pass  # falls through to azure below
+
             else:
-                # a1111 or any SD-compatible provider — also handles azure_gpt_image fallback
-                if provider == "azure_gpt_image":
+                # a1111 — try it, fall back to azure_gpt_image if not reachable
+                try:
+                    png_bytes = await _a1111_txt2img(positive, negative, width, height, scene_seed)
+                except (httpx.ConnectError, httpx.ConnectTimeout, httpx.RemoteProtocolError) as a1111_exc:
+                    logger.warning("A1111 not reachable (%s) — falling back to azure_gpt_image", a1111_exc)
+
+            # Azure GPT-Image-2 fallback (or primary when provider == "azure_gpt_image")
+            if png_bytes is None:
+                try:
                     from persona_system.image_engine.generator import _azure_dalle
                     png_bytes = await _azure_dalle(positive, width=1024, height=1024)
-                else:
-                    png_bytes = await _a1111_txt2img(positive, negative, width, height, scene_seed)
+                except Exception as az_exc:
+                    logger.error("Azure GPT-Image-2 also failed: %s", az_exc)
+                    raise
 
             out_path = output_dir / f"scene_{i:02d}_{uuid.uuid4().hex[:6]}.png"
             out_path.write_bytes(png_bytes)
