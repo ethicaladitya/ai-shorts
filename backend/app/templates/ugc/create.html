@@ -1,0 +1,191 @@
+{% extends "base.html" %}
+{% block title %}New UGC Video{% endblock %}
+
+{% block content %}
+<div class="mb-8">
+    <a href="/ugc/" class="text-sm text-gray-400 hover:text-gray-600">← UGC Videos</a>
+    <h2 class="text-2xl font-bold text-gray-900 mt-2">New UGC Video</h2>
+    <p class="text-gray-500 text-sm mt-1">Generate an authentic creator-style short-form video</p>
+</div>
+
+<div class="grid grid-cols-3 gap-6">
+    <!-- Form -->
+    <div class="col-span-2">
+        <form action="/ugc/jobs" method="post" class="bg-white rounded-xl border border-gray-200 p-6 space-y-5" id="ugc-form">
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1.5">Topic / Hook idea</label>
+                <input type="text" name="topic" placeholder="e.g. why I stopped doom-scrolling at night"
+                    class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
+                    required>
+                <p class="text-xs text-gray-400 mt-1">Be specific — the LLM writes the script. Generic topics produce generic scripts.</p>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1.5">Platform</label>
+                    <select name="platform" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-900">
+                        {% for p in platforms %}
+                        <option value="{{ p }}" {% if p == 'tiktok' %}selected{% endif %}>{{ p|capitalize }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1.5">Style</label>
+                    <select name="style" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-900">
+                        {% for s in styles %}
+                        <option value="{{ s }}">{{ s }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1.5">Duration</label>
+                    <select name="duration_target" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-900">
+                        {% for d in durations %}
+                        <option value="{{ d }}" {% if d == 30 %}selected{% endif %}>{{ d }}s</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1.5">Persona</label>
+                    <input type="text" name="persona_name" value="default"
+                        class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-900">
+                </div>
+            </div>
+
+            <!-- Hidden provider fields — values driven by sidebar selects -->
+            <input type="hidden" name="script_provider" id="f-script-provider" value="{{ providers.script }}">
+            <input type="hidden" name="image_provider"  id="f-image-provider"  value="{{ providers.image }}">
+            <input type="hidden" name="voice_provider"  id="f-voice-provider"  value="{{ providers.voice }}">
+            <input type="hidden" name="head_provider"   id="f-head-provider"   value="{{ providers.head }}">
+
+            <div class="pt-2 flex items-center justify-between">
+                <p class="text-xs text-gray-400" id="cost-label">
+                    Mode: <strong>{{ ugc_mode }}</strong> ·
+                    Est. cost:
+                    <strong id="cost-value" class="{% if estimated_cost == 0 %}text-green-600{% else %}text-amber-600{% endif %}">
+                        {% if estimated_cost == 0 %}FREE{% else %}~${{ "%.2f"|format(estimated_cost) }}{% endif %}
+                    </strong>
+                </p>
+                <button type="submit"
+                    class="px-5 py-2.5 bg-gray-900 text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition">
+                    Generate Video
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Provider sidebar -->
+    <div class="space-y-4">
+
+        <!-- Script provider -->
+        <div class="bg-white rounded-xl border border-gray-200 p-5">
+            <div class="flex items-center justify-between mb-3">
+                <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Script</h3>
+                <span id="badge-script" class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-50 text-green-700">{{ providers.script }}</span>
+            </div>
+            <select id="sel-script" onchange="updateProvider('script', this.value)"
+                class="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-gray-900">
+                <option value="ollama" {% if providers.script == 'ollama' %}selected{% endif %}>Ollama (Local — FREE)</option>
+                <option value="azure_openai" {% if providers.script == 'azure_openai' %}selected{% endif %}>Azure OpenAI gpt-4o-mini (API)</option>
+                <option value="openai" {% if providers.script == 'openai' %}selected{% endif %}>OpenAI gpt-4o-mini (API)</option>
+            </select>
+        </div>
+
+        <!-- Image provider -->
+        <div class="bg-white rounded-xl border border-gray-200 p-5">
+            <div class="flex items-center justify-between mb-3">
+                <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Images</h3>
+                <span id="badge-image" class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-50 text-green-700">{{ providers.image }}</span>
+            </div>
+            <select id="sel-image" onchange="updateProvider('image', this.value)"
+                class="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-gray-900">
+                <option value="a1111" {% if providers.image == 'a1111' %}selected{% endif %}>A1111 / Stable Diffusion (Local — FREE)</option>
+                <option value="comfyui" {% if providers.image == 'comfyui' %}selected{% endif %}>ComfyUI (Local — FREE)</option>
+                <option value="azure_gpt_image" {% if providers.image == 'azure_gpt_image' %}selected{% endif %}>Azure GPT-Image-2 (API — ~$0.04/img)</option>
+            </select>
+        </div>
+
+        <!-- Voice provider -->
+        <div class="bg-white rounded-xl border border-gray-200 p-5">
+            <div class="flex items-center justify-between mb-3">
+                <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Voice</h3>
+                <span id="badge-voice" class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-50 text-green-700">{{ providers.voice }}</span>
+            </div>
+            <select id="sel-voice" onchange="updateProvider('voice', this.value)"
+                class="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-gray-900">
+                <option value="kokoro" {% if providers.voice == 'kokoro' %}selected{% endif %}>Kokoro (Local — FREE)</option>
+                <option value="azure_openai" {% if providers.voice == 'azure_openai' %}selected{% endif %}>Azure TTS (API — low cost)</option>
+                <option value="elevenlabs" {% if providers.voice == 'elevenlabs' %}selected{% endif %}>ElevenLabs (API — best quality)</option>
+            </select>
+        </div>
+
+        <!-- Talking head provider -->
+        <div class="bg-white rounded-xl border border-gray-200 p-5">
+            <div class="flex items-center justify-between mb-3">
+                <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Talking Head</h3>
+                <span id="badge-head" class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-50 text-green-700">{{ providers.head }}</span>
+            </div>
+            <select id="sel-head" onchange="updateProvider('head', this.value)"
+                class="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-gray-900">
+                <option value="slideshow" {% if providers.head == 'slideshow' %}selected{% endif %}>Slideshow (Local — FREE)</option>
+                <option value="sadtalker" {% if providers.head == 'sadtalker' %}selected{% endif %}>SadTalker via Replicate (~$0.01)</option>
+                <option value="replicate_latentsync" {% if providers.head == 'replicate_latentsync' %}selected{% endif %}>Replicate LatentSync (~$0.01)</option>
+                <option value="syncso" {% if providers.head == 'syncso' %}selected{% endif %}>sync.so (free tier)</option>
+                <option value="hedra" {% if providers.head == 'hedra' %}selected{% endif %}>Hedra (~$0.05/video)</option>
+            </select>
+        </div>
+
+        <div class="bg-blue-50 border border-blue-100 rounded-xl p-4">
+            <p class="text-xs font-semibold text-blue-800 mb-1">Approval checkpoint</p>
+            <p class="text-xs text-blue-700">
+                Pipeline pauses after script + images.
+                You'll review before rendering begins.
+            </p>
+        </div>
+    </div>
+</div>
+
+<script>
+const LOCAL_PROVIDERS = new Set(['ollama','a1111','comfyui','kokoro','sadtalker','slideshow','ffmpeg','latentsync']);
+
+const PROVIDER_COSTS = {
+    'ollama': 0, 'a1111': 0, 'comfyui': 0, 'kokoro': 0,
+    'sadtalker': 0.01, 'slideshow': 0, 'latentsync': 0,
+    'replicate_latentsync': 0.01, 'syncso': 0,
+    'azure_openai': 0.001, 'openai': 0.002,
+    'azure_gpt_image': 0.04, 'elevenlabs': 0.003,
+    'hedra': 0.05,
+};
+
+function updateProvider(stage, value) {
+    document.getElementById('f-' + stage + '-provider').value = value;
+    const badge = document.getElementById('badge-' + stage);
+    badge.textContent = value;
+    const isLocal = LOCAL_PROVIDERS.has(value);
+    badge.className = 'inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ' +
+        (isLocal ? 'bg-green-50 text-green-700' : 'bg-amber-50 text-amber-700');
+    recalcCost();
+}
+
+function recalcCost() {
+    const stages = ['script', 'image', 'voice', 'head'];
+    let total = 0;
+    stages.forEach(s => {
+        const v = document.getElementById('f-' + s + '-provider').value;
+        total += (PROVIDER_COSTS[v] || 0);
+    });
+    const el = document.getElementById('cost-value');
+    if (total === 0) {
+        el.textContent = 'FREE';
+        el.className = 'text-green-600';
+    } else {
+        el.textContent = '~$' + total.toFixed(3) + '/video';
+        el.className = 'text-amber-600';
+    }
+}
+</script>
+{% endblock %}

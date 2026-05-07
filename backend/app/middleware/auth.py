@@ -11,6 +11,7 @@ _PUBLIC_PREFIXES = (
     "/health",
     "/static/",
     "/output/",
+    "/persona/",
     "/favicon",
 )
 

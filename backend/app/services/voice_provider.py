@@ -28,17 +28,27 @@ class AzureOpenAIVoiceProvider(VoiceProvider):
 
     async def generate_speech(self, text: str, output_path: Path, voice: str = "") -> Path:
         import httpx
+        import re
 
         used_voice = voice or self.tts_voice
         url = (
             f"{self.endpoint}/openai/deployments/{self.tts_deployment}"
             f"/audio/speech?api-version={self.api_version}"
         )
-        async with httpx.AsyncClient(timeout=120.0) as client:
+
+        # Clean text before sending — the preprocessor can produce garbled output
+        # that causes the TTS to hang (excessive ellipsis, lone letters like "a... m...")
+        clean = text
+        clean = re.sub(r'(\.\.\.\s*){2,}', '... ', clean)   # collapse repeated ...
+        clean = re.sub(r'\b([a-z])\.\.\.\s+([a-z])\.\.\.', r'\1.\2.', clean)  # fix a... m... -> a.m.
+        clean = re.sub(r'\s+', ' ', clean).strip()
+        clean = clean[:800]  # max ~200 words; TTS handles this comfortably
+
+        async with httpx.AsyncClient(timeout=35.0) as client:
             resp = await client.post(
                 url,
                 headers={"api-key": self.api_key, "Content-Type": "application/json"},
-                json={"model": self.tts_deployment, "input": text, "voice": used_voice},
+                json={"model": self.tts_deployment, "input": clean, "voice": used_voice},
             )
             resp.raise_for_status()
             output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -93,21 +103,130 @@ class OpenAIVoiceProvider(VoiceProvider):
 
 
 class ElevenLabsVoiceProvider(VoiceProvider):
-    def __init__(self, api_key: str, voice_id: str = "21m00Tcm4TlvDq8ikWAM"):
+    # Local file to cache the cloned voice_id so we only clone once
+    _CACHE_FILE = Path(__file__).resolve().parents[2] / "data" / "elevenlabs_voice_cache.txt"
+    _cloned_voice_id: str | None = None   # in-process cache
+
+    def __init__(self, api_key: str, voice_id: str = "j05EIz3iI3JmBTWC3CsA",
+                 sample_url: str = ""):
         self.api_key = api_key
         self.voice_id = voice_id
+        self.sample_url = sample_url  # URL of the reference MP3 to clone if needed
+
+    # ── Internal helpers ──────────────────────────────────────────────────────
+
+    def _load_cached_voice_id(self) -> str | None:
+        """Return a previously cloned voice_id from disk cache."""
+        if ElevenLabsVoiceProvider._cloned_voice_id:
+            return ElevenLabsVoiceProvider._cloned_voice_id
+        if self._CACHE_FILE.exists():
+            vid = self._CACHE_FILE.read_text().strip()
+            if vid:
+                ElevenLabsVoiceProvider._cloned_voice_id = vid
+                return vid
+        return None
+
+    def _save_cached_voice_id(self, voice_id: str) -> None:
+        self._CACHE_FILE.parent.mkdir(parents=True, exist_ok=True)
+        self._CACHE_FILE.write_text(voice_id)
+        ElevenLabsVoiceProvider._cloned_voice_id = voice_id
+
+    async def _clone_voice_from_sample(self, client) -> str:
+        """
+        Download the reference MP3 and use ElevenLabs Instant Voice Cloning
+        to add the voice to this account. Returns the new voice_id.
+        """
+        import logging, tempfile, os
+        logger = logging.getLogger(__name__)
+
+        sample_url = self.sample_url or (
+            "https://storage.googleapis.com/eleven-public-prod/database/user/"
+            "1sQEubbF2LayrwfzcqizACaG7MC3/voices/j05EIz3iI3JmBTWC3CsA/"
+            "UB0gk19IQjWeV1Zsk3X7.mp3"
+        )
+        logger.info("Downloading voice sample for cloning: %s", sample_url)
+        dl = await client.get(sample_url, timeout=30.0)
+        dl.raise_for_status()
+
+        # Write to a temp file
+        tmp = Path(tempfile.mktemp(suffix=".mp3"))
+        tmp.write_bytes(dl.content)
+
+        logger.info("Cloning voice via ElevenLabs Instant Voice Cloning...")
+        try:
+            with open(tmp, "rb") as f:
+                clone_resp = await client.post(
+                    "https://api.elevenlabs.io/v1/voices/add",
+                    headers={"xi-api-key": self.api_key},
+                    data={"name": "Nova Persona Voice"},
+                    files={"files": ("sample.mp3", f, "audio/mpeg")},
+                    timeout=60.0,
+                )
+            clone_resp.raise_for_status()
+            new_id = clone_resp.json()["voice_id"]
+            logger.info("Voice cloned successfully. New voice_id: %s", new_id)
+            self._save_cached_voice_id(new_id)
+            return new_id
+        finally:
+            tmp.unlink(missing_ok=True)
+
+    async def _resolve_voice_id(self, client) -> str:
+        """
+        Return a working voice_id:
+        1. Check disk cache (from a previous successful clone).
+        2. Try the configured voice_id — if it returns 200, use it.
+        3. Otherwise clone from sample and return the new id.
+        """
+        import logging
+        logger = logging.getLogger(__name__)
+
+        cached = self._load_cached_voice_id()
+        if cached:
+            return cached
+
+        # Quick probe to see if the voice_id is in this account
+        probe = await client.post(
+            f"https://api.elevenlabs.io/v1/text-to-speech/{self.voice_id}",
+            headers={"xi-api-key": self.api_key, "Content-Type": "application/json"},
+            json={"text": "test", "model_id": "eleven_multilingual_v2",
+                  "voice_settings": {"stability": 0.5, "similarity_boost": 0.75}},
+            timeout=15.0,
+        )
+        if probe.status_code == 200:
+            return self.voice_id
+
+        logger.warning(
+            "ElevenLabs voice %s not in account (HTTP %s: %s) — cloning from sample",
+            self.voice_id, probe.status_code, probe.text[:200],
+        )
+        return await self._clone_voice_from_sample(client)
+
+    # ── Public interface ──────────────────────────────────────────────────────
 
     async def generate_speech(self, text: str, output_path: Path, voice: str = "") -> Path:
-        import httpx
+        import httpx, re, logging
+        logger = logging.getLogger(__name__)
 
-        vid = voice or self.voice_id
-        async with httpx.AsyncClient(timeout=120.0) as client:
+        # Clean text — same safeguards as the Azure provider
+        clean = re.sub(r'(\.\.\.\s*){2,}', '... ', text)
+        clean = re.sub(r'\s+', ' ', clean).strip()
+        clean = clean[:800]
+
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            vid = voice or await self._resolve_voice_id(client)
             resp = await client.post(
                 f"https://api.elevenlabs.io/v1/text-to-speech/{vid}",
                 headers={"xi-api-key": self.api_key, "Content-Type": "application/json"},
-                json={"text": text, "model_id": "eleven_turbo_v2_5", "voice_settings": {"stability": 0.5, "similarity_boost": 0.75}},
+                json={
+                    "text": clean,
+                    "model_id": "eleven_multilingual_v2",
+                    "voice_settings": {"stability": 0.45, "similarity_boost": 0.80,
+                                       "style": 0.35, "use_speaker_boost": True},
+                },
             )
-            resp.raise_for_status()
+            if not resp.is_success:
+                logger.error("ElevenLabs TTS failed (HTTP %s): %s", resp.status_code, resp.text[:300])
+                resp.raise_for_status()
             output_path.parent.mkdir(parents=True, exist_ok=True)
             output_path.write_bytes(resp.content)
             return output_path

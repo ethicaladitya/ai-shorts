@@ -1,0 +1,1227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Persona System | AI Content Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --bg-dark: #0a0a0c;
+            --surface: #141418;
+            --surface-accent: #1c1c22;
+            --primary: #8b5cf6;
+            --primary-glow: rgba(139, 92, 246, 0.4);
+            --secondary: #ec4899;
+            --text-main: #f8fafc;
+            --text-dim: #94a3b8;
+            --success: #22c55e;
+            --warning: #f59e0b;
+            --error: #ef4444;
+            --ig-gradient: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
+            --of-blue: #008fcc;
+            --glass: rgba(255, 255, 255, 0.03);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        /* --- Layout --- */
+        .app-container {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* --- Sidebar --- */
+        .sidebar {
+            width: 260px;
+            background: var(--surface);
+            border-right: 1px solid var(--glass-border);
+            padding: 2rem 1.5rem;
+            display: flex;
+            flex-direction: column;
+            position: fixed;
+            height: 100vh;
+            z-index: 100;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 3rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            background: linear-gradient(to right, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .nav-menu {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .nav-item {
+            padding: 0.75rem 1rem;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            color: var(--text-dim);
+            font-weight: 500;
+        }
+
+        .nav-item i { width: 20px; font-size: 1.1rem; }
+
+        .nav-item:hover {
+            background: var(--glass);
+            color: var(--text-main);
+        }
+
+        .nav-item.active {
+            background: var(--primary);
+            color: white;
+            box-shadow: 0 4px 15px var(--primary-glow);
+        }
+
+        .sidebar-footer {
+            margin-top: auto;
+            padding-top: 2rem;
+        }
+
+        .persona-badge {
+            background: var(--surface-accent);
+            padding: 1rem;
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            border: 1px solid var(--glass-border);
+        }
+
+        .persona-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+        }
+
+        /* --- Main Content --- */
+        .main-content {
+            flex: 1;
+            margin-left: 260px;
+            padding: 2rem 3rem;
+            max-width: 1600px;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 3rem;
+        }
+
+        .header-title h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 0.25rem;
+        }
+
+        .header-title p {
+            color: var(--text-dim);
+        }
+
+        .actions {
+            display: flex;
+            gap: 1rem;
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border-radius: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            transition: var(--transition);
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+            box-shadow: 0 4px 15px var(--primary-glow);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            filter: brightness(1.1);
+        }
+
+        .btn-secondary {
+            background: var(--surface-accent);
+            color: var(--text-main);
+            border: 1px solid var(--glass-border);
+        }
+
+        .btn-secondary:hover {
+            background: var(--glass);
+        }
+
+        /* --- Dashboard Stats --- */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 3rem;
+        }
+
+        .stat-card {
+            background: var(--surface);
+            padding: 1.5rem;
+            border-radius: 20px;
+            border: 1px solid var(--glass-border);
+            transition: var(--transition);
+        }
+
+        .stat-card:hover { transform: translateY(-5px); border-color: var(--primary); }
+
+        .stat-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            background: var(--glass);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+            margin-bottom: 1.25rem;
+            color: var(--primary);
+        }
+
+        .stat-value { font-size: 1.75rem; font-weight: 700; margin-bottom: 0.25rem; }
+        .stat-label { color: var(--text-dim); font-size: 0.9rem; font-weight: 500; }
+
+        /* --- Sections --- */
+        .section { display: none; }
+        .section.active { display: block; animation: fadeIn 0.4s ease-out; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* --- Media Grid --- */
+        .media-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .media-card {
+            background: var(--surface);
+            border-radius: 16px;
+            overflow: hidden;
+            border: 1px solid var(--glass-border);
+            transition: var(--transition);
+            position: relative;
+        }
+
+        .media-thumb {
+            aspect-ratio: 9/16;
+            background: #000;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .media-thumb img, .media-thumb video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .platform-badge {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            padding: 0.4rem 0.8rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            z-index: 10;
+            backdrop-filter: blur(10px);
+        }
+
+        .badge-ig { background: var(--ig-gradient); color: white; }
+        .badge-of { background: var(--of-blue); color: white; }
+
+        .media-info { padding: 1.25rem; }
+        .media-caption {
+            font-size: 0.9rem;
+            color: var(--text-main);
+            margin-bottom: 1rem;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .media-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.8rem;
+            color: var(--text-dim);
+        }
+
+        /* --- Settings Panel --- */
+        .settings-container {
+            max-width: 800px;
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+        }
+
+        .settings-card {
+            background: var(--surface);
+            padding: 2rem;
+            border-radius: 24px;
+            border: 1px solid var(--glass-border);
+        }
+
+        .settings-card h3 { margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.75rem; }
+
+        .form-group { margin-bottom: 1.5rem; }
+        .form-group label { display: block; margin-bottom: 0.5rem; font-weight: 500; color: var(--text-dim); }
+
+        select, input {
+            width: 100%;
+            background: var(--surface-accent);
+            border: 1px solid var(--glass-border);
+            padding: 0.75rem 1rem;
+            border-radius: 12px;
+            color: white;
+            font-family: inherit;
+            outline: none;
+            transition: var(--transition);
+        }
+
+        select:focus, input:focus { border-color: var(--primary); }
+
+        /* --- Pipeline Modal --- */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.8);
+            backdrop-filter: blur(8px);
+            z-index: 1000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal {
+            background: var(--surface);
+            width: 100%;
+            max-width: 600px;
+            border-radius: 24px;
+            padding: 2.5rem;
+            border: 1px solid var(--glass-border);
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; }
+        .close-modal { cursor: pointer; font-size: 1.5rem; color: var(--text-dim); }
+
+        /* --- Logs --- */
+        .log-container {
+            background: #000;
+            border-radius: 16px;
+            padding: 1.5rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            color: #10b981;
+            height: 400px;
+            overflow-y: auto;
+            border: 1px solid var(--glass-border);
+            margin-top: 1rem;
+        }
+        .log-line { margin-bottom: 0.25rem; border-left: 2px solid #065f46; padding-left: 0.75rem; }
+        .log-line.error { color: var(--error); border-color: var(--error); }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="logo">
+            <i class="fas fa-ghost"></i>
+            <span>PersonaOS</span>
+        </div>
+
+        <ul class="nav-menu">
+            <li class="nav-item active" onclick="showTab('overview')"><i class="fas fa-chart-pie"></i> Overview</li>
+            <li class="nav-item" onclick="showTab('content')"><i class="fas fa-film"></i> Content</li>
+            <li class="nav-item" onclick="showTab('media')"><i class="fas fa-images"></i> Media Library</li>
+            <li class="nav-item" onclick="showTab('schedule')"><i class="fas fa-calendar-alt"></i> Schedule</li>
+            <li class="nav-item" onclick="showTab('dms')"><i class="fas fa-comments"></i> DMs</li>
+            <li class="nav-item" onclick="showTab('analytics')"><i class="fas fa-analytics"></i> Analytics</li>
+            <li class="nav-item" onclick="showTab('personas')"><i class="fas fa-user-circle"></i> Personas</li>
+            <li class="nav-item" onclick="showTab('settings')"><i class="fas fa-cog"></i> Settings</li>
+        </ul>
+
+        <div class="sidebar-footer">
+            <div class="persona-badge">
+                <div class="persona-avatar">N</div>
+                <div>
+                    <div style="font-weight: 600; font-size: 0.9rem;">Nova</div>
+                    <div style="font-size: 0.75rem; color: var(--text-dim);">Active Persona</div>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main -->
+    <main class="main-content">
+        <header>
+            <div class="header-title">
+                <h1 id="tab-title">Dashboard</h1>
+                <p id="tab-desc">Welcome back, Nova is trending.</p>
+            </div>
+            <div class="actions">
+                <button class="btn btn-secondary" onclick="refreshData()"><i class="fas fa-sync"></i> Refresh</button>
+                <button class="btn btn-primary" onclick="openPipeline()"><i class="fas fa-bolt"></i> Run Pipeline</button>
+            </div>
+        </header>
+
+        <!-- Tab: Overview -->
+        <div id="tab-overview" class="section active">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon"><i class="fas fa-video"></i></div>
+                    <div class="stat-value" id="stat-total-content">-</div>
+                    <div class="stat-label">Total Content Pieces</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon" style="color: var(--secondary);"><i class="fas fa-calendar-check"></i></div>
+                    <div class="stat-value" id="stat-scheduled">-</div>
+                    <div class="stat-label">Scheduled Posts</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon" style="color: var(--success);"><i class="fas fa-heart"></i></div>
+                    <div class="stat-value" id="stat-avg-score">-</div>
+                    <div class="stat-label">Avg. Performance</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon" style="color: var(--warning);"><i class="fas fa-comment-alt"></i></div>
+                    <div class="stat-value" id="stat-pending-dms">-</div>
+                    <div class="stat-label">Pending DMs</div>
+                </div>
+            </div>
+
+            <h2 style="margin-bottom: 1.5rem;">Recent Activity</h2>
+            <div id="recent-content-list" class="media-grid">
+                <!-- Content injected here -->
+            </div>
+        </div>
+
+        <!-- Tab: Content -->
+        <div id="tab-content" class="section">
+            <div style="display: flex; gap: 1rem; margin-bottom: 2rem;">
+                <select id="filter-platform" onchange="loadContent()" style="width: auto;">
+                    <option value="">All Platforms</option>
+                    <option value="instagram">Instagram</option>
+                    <option value="onlyfans">OnlyFans</option>
+                </select>
+                <select id="filter-status" onchange="loadContent()" style="width: auto;">
+                    <option value="">All Statuses</option>
+                    <option value="approved">Approved</option>
+                    <option value="processing">Processing</option>
+                    <option value="scheduled">Scheduled</option>
+                    <option value="failed">Failed</option>
+                </select>
+            </div>
+            <div id="content-list" class="media-grid"></div>
+        </div>
+
+        <!-- Tab: Media Library -->
+        <div id="tab-media" class="section">
+            <div style="display: flex; gap: 1rem; margin-bottom: 2rem;">
+                <select id="filter-media-type" onchange="loadMedia()" style="width: auto;">
+                    <option value="images">Single Images</option>
+                    <option value="galleries">Galleries (OF sets)</option>
+                </select>
+            </div>
+            <div id="media-list" class="media-grid"></div>
+        </div>
+
+        <!-- Tab: Settings -->
+        <div id="tab-settings" class="section">
+            <div class="settings-container">
+                <div class="settings-card">
+                    <h3><i class="fas fa-brain"></i> AI Providers</h3>
+                    <div class="form-group">
+                        <label>🎙️ Voice Provider</label>
+                        <select id="setting-voice-provider">
+                            <option value="voicebox">Voicebox (Local — Kokoro)</option>
+                            <option value="azure_openai">Azure OpenAI TTS (gpt-4o-mini-tts)</option>
+                            <option value="elevenlabs">ElevenLabs (Cloud API)</option>
+                            <option value="azure_speech">Azure Speech Neural TTS</option>
+                        </select>
+                        <small style="color:var(--text-dim)">Voicebox runs locally. Azure TTS is cloud-based and more reliable.</small>
+                    </div>
+                    <div class="form-group">
+                        <label>Video Clip Provider (Motion)</label>
+                        <select id="setting-video-provider">
+                            <option value="svd">Stable Video Diffusion (Local)</option>
+                            <option value="kling">Kling AI (Cloud API)</option>
+                            <option value="grok-3">Grok-3 (Azure API)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Script LLM Model</label>
+                        <select id="setting-llm-model">
+                            <option value="gpt-4o-mini">GPT-4o-mini (Azure)</option>
+                            <option value="grok-3">Grok-3 (Azure)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Lipsync Provider</label>
+                        <select id="setting-lipsync-provider">
+                            <option value="replicate_latentsync">Replicate LatentSync (~$0.01/video, recommended)</option>
+                            <option value="syncso">sync.so (free tier available)</option>
+                            <option value="hedra">Hedra (Cloud — ~$0.05/video, best quality)</option>
+                            <option value="sadtalker">SadTalker via Replicate</option>
+                            <option value="latentsync">LatentSync (Local — needs GPU setup)</option>
+                        </select>
+                        <p style="font-size: 0.75rem; color: var(--text-dim); margin-top: 0.25rem;">
+                            Replicate LatentSync: add REPLICATE_API_KEY · sync.so: add SYNCSO_API_KEY · Hedra: add HEDRA_API_KEY
+                        </p>
+                    </div>
+                    <div class="form-group">
+                        <label>Hedra API Key</label>
+                        <input type="password" id="setting-hedra-key" placeholder="hed_xxxxxxxxxxxxxxxx">
+                    </div>
+                    <div class="form-group">
+                        <label>ElevenLabs Voice ID <span style="color: var(--text-dim); font-size: 0.75rem;">(from elevenlabs.io → Voice Library)</span></label>
+                        <input type="text" id="setting-elevenlabs-voice-id" placeholder="cgSgspJ2msm6clMCkdW9">
+                    </div>
+                    <div class="form-group">
+                        <label>Image Generator</label>
+                        <select id="setting-image-provider">
+                            <option value="gpt-image-2">Azure GPT-Image-2 (Recommended — best consistency)</option>
+                            <option value="azure_dalle">Azure DALL-E 3</option>
+                            <option value="sd">Stable Diffusion (Local)</option>
+                            <option value="grok-3">Grok-3 (Azure API)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Default Video Mode</label>
+                        <select id="setting-video-mode">
+                            <option value="scene_talking">Scene + Talking (Activities + Lipsync ✨)</option>
+                            <option value="animated_talking">Animated Talking</option>
+                            <option value="talking">Portrait Talking (Static)</option>
+                            <option value="animated_loop">Animated Loop (No Lipsync)</option>
+                            <option value="loop">Static Loop</option>
+                        </select>
+                    </div>
+                    <button class="btn btn-primary" onclick="saveSettings()">Save Configuration</button>
+                </div>
+
+                <div class="settings-card">
+                    <h3><i class="fas fa-share-alt"></i> Platform Integrations</h3>
+                    <div style="display: flex; gap: 2rem;">
+                        <div class="form-group">
+                            <label><input type="checkbox" id="setting-ig-enabled" style="width: auto; margin-right: 0.5rem;"> Enable Instagram</label>
+                        </div>
+                        <div class="form-group">
+                            <label><input type="checkbox" id="setting-of-enabled" style="width: auto; margin-right: 0.5rem;"> Enable OnlyFans</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab: Personas -->
+        <div id="tab-personas" class="section">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                <h2 style="font-size: 1.2rem; font-weight: 600;">Persona Profiles</h2>
+                <button class="btn btn-primary" onclick="openPersonaForm(null)"><i class="fas fa-plus"></i> New Persona</button>
+            </div>
+            <div id="personas-list" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1rem;"></div>
+
+            <!-- Create / Edit form -->
+            <div id="persona-form-wrap" style="display:none; margin-top: 2rem; background: var(--surface); border: 1px solid var(--glass-border); border-radius: 12px; padding: 1.5rem;">
+                <h3 id="persona-form-title" style="margin-bottom: 1.2rem; font-size: 1rem; font-weight: 600;">New Persona</h3>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                    <div class="form-group">
+                        <label>Persona ID <span style="color: var(--text-dim); font-size: 0.75rem;">(filename, no spaces)</span></label>
+                        <input type="text" id="pf-id" placeholder="luna_v1">
+                    </div>
+                    <div class="form-group">
+                        <label>Display Name</label>
+                        <input type="text" id="pf-display-name" placeholder="Luna — Night Aesthetic">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Bio <span style="color: var(--text-dim); font-size: 0.75rem;">(1–2 lines, first-person, casual)</span></label>
+                    <textarea id="pf-bio" rows="2" placeholder="22, somewhere between bored and dangerous..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label>LoRA Trigger Word</label>
+                    <input type="text" id="pf-trigger" placeholder="luna_v1">
+                </div>
+                <h4 style="margin: 1rem 0 0.75rem; font-size: 0.85rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em;">Appearance</h4>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+                    <div class="form-group"><label>Hair</label><input type="text" id="pf-hair" placeholder="long dark wavy hair"></div>
+                    <div class="form-group"><label>Eyes</label><input type="text" id="pf-eyes" placeholder="brown eyes, sharp gaze"></div>
+                    <div class="form-group"><label>Skin</label><input type="text" id="pf-skin" placeholder="warm olive skin"></div>
+                    <div class="form-group"><label>Style</label><input type="text" id="pf-style" placeholder="oversized hoodies, crop tops"></div>
+                    <div class="form-group" style="grid-column: span 2;"><label>Signature Look</label><input type="text" id="pf-look" placeholder="tired eyes that somehow catch the light"></div>
+                </div>
+                <h4 style="margin: 1rem 0 0.75rem; font-size: 0.85rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em;">Voice &amp; Personality</h4>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+                    <div class="form-group">
+                        <label>Voice Profile</label>
+                        <select id="pf-voice-profile">
+                            <option value="soft_feminine_v1">Soft Feminine</option>
+                            <option value="playful_teasing">Playful &amp; Teasing</option>
+                            <option value="calm_thoughtful">Calm &amp; Thoughtful</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Tone</label>
+                        <input type="text" id="pf-tone" placeholder="warm but slightly detached">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Content Pillars <span style="color: var(--text-dim); font-size: 0.75rem;">(comma-separated)</span></label>
+                    <input type="text" id="pf-pillars" placeholder="late night energy, daily aesthetic, intimate moments">
+                </div>
+                <h4 style="margin: 1rem 0 0.75rem; font-size: 0.85rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em;">Platforms</h4>
+                <div style="display: flex; gap: 1.5rem; flex-wrap: wrap;">
+                    <label style="display: flex; align-items: center; gap: 0.4rem; cursor: pointer;"><input type="checkbox" id="pf-plat-ig" value="instagram" checked style="width: auto;"> Instagram</label>
+                    <label style="display: flex; align-items: center; gap: 0.4rem; cursor: pointer;"><input type="checkbox" id="pf-plat-of" value="onlyfans" checked style="width: auto;"> OnlyFans</label>
+                    <label style="display: flex; align-items: center; gap: 0.4rem; cursor: pointer;"><input type="checkbox" id="pf-plat-tt" value="tiktok" style="width: auto;"> TikTok</label>
+                </div>
+                <h4 style="margin: 1rem 0 0.75rem; font-size: 0.85rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em;">Image Generation Prompt</h4>
+                <div class="form-group">
+                    <label>Base Positive Prompt <span style="color: var(--text-dim); font-size: 0.75rem;">(trigger_word auto-prepended)</span></label>
+                    <textarea id="pf-img-pos" rows="2" placeholder="photorealistic, 8k, cinematic lighting, detailed skin texture, sharp focus, Canon EOS R5"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Base Negative Prompt</label>
+                    <textarea id="pf-img-neg" rows="2" placeholder="cartoon, anime, painting, blurry, watermark, bad anatomy, low quality"></textarea>
+                </div>
+                <div style="display: flex; gap: 1rem; margin-top: 1rem;">
+                    <button class="btn btn-primary" onclick="savePersona()" style="flex: 1; justify-content: center;">Save Persona</button>
+                    <button class="btn btn-secondary" onclick="closePersonaForm()">Cancel</button>
+                </div>
+                <div id="persona-save-status" style="margin-top: 0.75rem; font-size: 0.85rem;"></div>
+            </div>
+        </div>
+
+        <!-- Tab: Placeholders -->
+        <div id="tab-schedule" class="section"><p style="color: var(--text-dim);">Scheduling system coming soon...</p></div>
+        <div id="tab-dms" class="section"><p style="color: var(--text-dim);">DM automation coming soon...</p></div>
+        <div id="tab-analytics" class="section"><p style="color: var(--text-dim);">Analytics dashboard coming soon...</p></div>
+    </main>
+</div>
+
+<!-- Pipeline Modal -->
+<div class="modal-overlay" id="pipeline-modal">
+    <div class="modal">
+        <div class="modal-header">
+            <h2>Run Content Pipeline</h2>
+            <i class="fas fa-times close-modal" onclick="closePipeline()"></i>
+        </div>
+        <div class="form-group">
+            <label>Content Pillar</label>
+            <select id="pipe-pillar">
+                <option value="">Auto (Random)</option>
+                <option value="late night energy">Late Night Energy</option>
+                <option value="soft-chaos lifestyle">Soft-Chaos Lifestyle</option>
+                <option value="intimate eye contact moments">Intimate Moments</option>
+                <option value="aesthetic daily routines">Daily Aesthetics</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Target Platforms</label>
+            <div style="display: flex; gap: 1rem;">
+                <label><input type="checkbox" value="instagram" checked style="width: auto;"> IG</label>
+                <label><input type="checkbox" value="onlyfans" checked style="width: auto;"> OF</label>
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Video Mode</label>
+            <select id="pipe-mode">
+                <option value="animated_talking">Animated Talking (High Quality)</option>
+                <option value="talking">Static Talking (Lipsync only)</option>
+                <option value="loop">Static Loop (Photo + Audio)</option>
+            </select>
+        </div>
+        <div class="form-group" style="margin-bottom: 1.5rem;">
+            <label>🧍 Persona / Model</label>
+            <div id="persona-picker-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.6rem; margin-top: 0.5rem;">
+                <div style="color: #888; font-size: 0.8rem; grid-column: span 3; padding: 0.5rem;">Loading personas...</div>
+            </div>
+            <p style="font-size: 0.75rem; color: #888; margin-top: 0.4rem;">Each persona uses its own reference photo for scene generation.</p>
+        </div>
+        <div class="form-group">
+            <label>🎙️ Voice Provider</label>
+            <select id="pipe-voice-provider">
+                <option value="voicebox">Voicebox (Local — Kokoro)</option>
+                <option value="azure_openai">Azure OpenAI TTS (Cloud)</option>
+                <option value="elevenlabs" selected>ElevenLabs (Cloud)</option>
+                <option value="azure_speech">Azure Speech Neural</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Image Generator</label>
+            <select id="pipe-image-provider">
+                <option value="sd">Stable Diffusion (Local)</option>
+                <option value="azure_dalle" selected>Azure DALL-E 3 (Cloud API)</option>
+                <option value="gpt-image-2">Azure DALL-E 3 (gpt-image-2)</option>
+                <option value="grok-3">Grok-3 (Azure API)</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Video Motion Provider</label>
+            <select id="pipe-video-provider">
+                <option value="svd" selected>Stable Video Diffusion (Local)</option>
+                <option value="kling">Kling AI (Cloud API)</option>
+                <option value="grok-3">Grok-3 (not yet available — uses SVD fallback)</option>
+            </select>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group">
+                <label>Images to Gen</label>
+                <input type="number" id="pipe-img-count" value="5">
+            </div>
+            <div class="form-group">
+                <label>Scripts to Gen</label>
+                <input type="number" id="pipe-script-count" value="3">
+            </div>
+        </div>
+        <div class="form-group">
+            <label><input type="checkbox" id="pipe-gallery" style="width: auto; margin-right: 0.5rem;"> Generate OF Gallery Sets</label>
+        </div>
+
+        <div id="pipeline-status" style="display: none;">
+            <p style="margin-bottom: 0.5rem; font-weight: 600;">Pipeline Running...</p>
+            <div class="log-container" id="pipeline-logs"></div>
+        </div>
+
+        <button class="btn btn-primary" id="btn-start-pipeline" onclick="startPipeline()" style="width: 100%; justify-content: center; margin-top: 1rem;">Launch Engine</button>
+    </div>
+</div>
+
+<script>
+    // --- State ---
+    let currentTab = 'overview';
+    let logStream = null;
+
+    // --- Tab Switching ---
+    function showTab(tabId) {
+        const targetTab = document.getElementById(`tab-${tabId}`);
+        if (!targetTab) {
+            console.warn(`Tab div 'tab-${tabId}' not found.`);
+            return;
+        }
+
+        currentTab = tabId;
+        document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+        document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+
+        targetTab.classList.add('active');
+        
+        // Find nav item by clicking target or matching text
+        const activeNav = Array.from(document.querySelectorAll('.nav-item')).find(n => n.innerText.toLowerCase().includes(tabId));
+        if (activeNav) activeNav.classList.add('active');
+
+        // Update titles
+        const titles = {
+            overview: ['Dashboard', 'Welcome back, Nova is trending.'],
+            content: ['Content Library', 'Manage and approve generated videos.'],
+            media: ['Media Library', 'Raw assets and generated image sets.'],
+            personas: ['Persona Profiles', 'Create and manage AI model identities.'],
+            settings: ['System Configuration', 'Configure AI models and platform keys.']
+        };
+        document.getElementById('tab-title').innerText = titles[tabId] ? titles[tabId][0] : tabId.charAt(0).toUpperCase() + tabId.slice(1);
+        document.getElementById('tab-desc').innerText = titles[tabId] ? titles[tabId][1] : '';
+
+        if (tabId === 'content') loadContent();
+        if (tabId === 'media') loadMedia();
+        if (tabId === 'settings') loadSettings();
+        if (tabId === 'personas') loadPersonasList();
+    }
+
+    // --- Personas ---
+    let editingPersonaId = null;
+
+    async function loadPersonasList() {
+        const list = document.getElementById('personas-list');
+        list.innerHTML = '<div style="color: var(--text-dim); font-size: 0.9rem;">Loading...</div>';
+        const personas = await apiFetch('api/personas');
+        if (!personas.length) {
+            list.innerHTML = '<div style="color: var(--text-dim);">No personas yet. Create one above.</div>';
+            return;
+        }
+        list.innerHTML = personas.map(p => `
+            <div style="background: var(--surface); border: 1px solid var(--glass-border); border-radius: 12px; padding: 1.2rem; display: flex; flex-direction: column; gap: 0.75rem;">
+                ${p.reference_image_url ? `<img src="${p.reference_image_url}" style="width: 100%; height: 140px; object-fit: cover; border-radius: 8px;">` : `<div style="width:100%; height:140px; background: var(--surface-accent); border-radius:8px; display:flex; align-items:center; justify-content:center; color: var(--text-dim);"><i class="fas fa-user-circle" style="font-size:3rem;"></i></div>`}
+                <div>
+                    <div style="font-weight: 600;">${p.display_name}</div>
+                    <div style="font-size: 0.75rem; color: var(--text-dim); font-family: monospace;">${p.id}</div>
+                </div>
+                <div style="display: flex; gap: 0.5rem;">
+                    <button class="btn btn-secondary" style="flex:1; justify-content:center; font-size:0.8rem;" onclick="openPersonaForm('${p.id}')"><i class="fas fa-edit"></i> Edit</button>
+                    ${p.id !== 'default' ? `<button class="btn" style="flex:0; padding: 0.4rem 0.7rem; background: rgba(239,68,68,0.1); color: #ef4444; border: 1px solid rgba(239,68,68,0.3); border-radius: 8px; cursor: pointer;" onclick="deletePersona('${p.id}')"><i class="fas fa-trash"></i></button>` : ''}
+                </div>
+            </div>
+        `).join('');
+    }
+
+    async function openPersonaForm(personaId) {
+        editingPersonaId = personaId;
+        const wrap = document.getElementById('persona-form-wrap');
+        document.getElementById('persona-form-title').innerText = personaId ? `Edit Persona: ${personaId}` : 'New Persona';
+        document.getElementById('persona-save-status').innerText = '';
+
+        if (personaId) {
+            const cfg = await apiFetch(`api/personas/${personaId}`);
+            document.getElementById('pf-id').value = personaId;
+            document.getElementById('pf-id').disabled = true;
+            document.getElementById('pf-display-name').value = cfg.display_name || cfg.name || '';
+            document.getElementById('pf-bio').value = (cfg.bio || '').trim();
+            document.getElementById('pf-trigger').value = cfg.trigger_word || '';
+            const app = cfg.appearance || {};
+            document.getElementById('pf-hair').value = app.hair || '';
+            document.getElementById('pf-eyes').value = app.eyes || '';
+            document.getElementById('pf-skin').value = app.skin || '';
+            document.getElementById('pf-style').value = app.style || '';
+            document.getElementById('pf-look').value = app.signature_look || '';
+            const v = cfg.voice || {};
+            document.getElementById('pf-voice-profile').value = v.profile_name || 'soft_feminine_v1';
+            document.getElementById('pf-tone').value = v.tone || '';
+            document.getElementById('pf-pillars').value = (cfg.content_pillars || []).join(', ');
+            const plats = Object.keys(cfg.platforms || {});
+            document.getElementById('pf-plat-ig').checked = plats.some(k => k.startsWith('instagram'));
+            document.getElementById('pf-plat-of').checked = plats.some(k => k.startsWith('onlyfans'));
+            document.getElementById('pf-plat-tt').checked = plats.some(k => k === 'tiktok');
+            const ig = cfg.image_gen || {};
+            document.getElementById('pf-img-pos').value = ig.base_positive || '';
+            document.getElementById('pf-img-neg').value = ig.base_negative || '';
+        } else {
+            document.getElementById('pf-id').disabled = false;
+            ['pf-id','pf-display-name','pf-bio','pf-trigger','pf-hair','pf-eyes','pf-skin','pf-style','pf-look','pf-tone','pf-pillars','pf-img-pos','pf-img-neg'].forEach(id => document.getElementById(id).value = '');
+            document.getElementById('pf-voice-profile').value = 'soft_feminine_v1';
+            document.getElementById('pf-plat-ig').checked = true;
+            document.getElementById('pf-plat-of').checked = true;
+            document.getElementById('pf-plat-tt').checked = false;
+        }
+
+        wrap.style.display = 'block';
+        wrap.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function closePersonaForm() {
+        document.getElementById('persona-form-wrap').style.display = 'none';
+        editingPersonaId = null;
+    }
+
+    async function savePersona() {
+        const status = document.getElementById('persona-save-status');
+        const platforms = [];
+        if (document.getElementById('pf-plat-ig').checked) platforms.push('instagram');
+        if (document.getElementById('pf-plat-of').checked) platforms.push('onlyfans');
+        if (document.getElementById('pf-plat-tt').checked) platforms.push('tiktok');
+
+        const payload = {
+            id: document.getElementById('pf-id').value.trim(),
+            display_name: document.getElementById('pf-display-name').value.trim(),
+            bio: document.getElementById('pf-bio').value.trim(),
+            trigger_word: document.getElementById('pf-trigger').value.trim(),
+            appearance: {
+                hair: document.getElementById('pf-hair').value.trim(),
+                eyes: document.getElementById('pf-eyes').value.trim(),
+                skin: document.getElementById('pf-skin').value.trim(),
+                style: document.getElementById('pf-style').value.trim(),
+                signature_look: document.getElementById('pf-look').value.trim(),
+            },
+            voice: {
+                profile_name: document.getElementById('pf-voice-profile').value,
+                tone: document.getElementById('pf-tone').value.trim(),
+            },
+            content_pillars: document.getElementById('pf-pillars').value.split(',').map(s => s.trim()).filter(Boolean),
+            platforms,
+            image_gen: {
+                base_positive: document.getElementById('pf-img-pos').value.trim(),
+                base_negative: document.getElementById('pf-img-neg').value.trim(),
+            },
+        };
+
+        status.style.color = 'var(--text-dim)';
+        status.innerText = 'Saving...';
+
+        const method = editingPersonaId ? 'PUT' : 'POST';
+        const url = editingPersonaId ? `api/personas/${editingPersonaId}` : 'api/personas';
+        const resp = await fetch(url, { method, headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
+        if (resp.ok) {
+            status.style.color = 'var(--success)';
+            status.innerText = '✓ Saved successfully';
+            await loadPersonasList();
+            setTimeout(closePersonaForm, 1200);
+        } else {
+            const err = await resp.json();
+            status.style.color = 'var(--error)';
+            status.innerText = `Error: ${err.detail || resp.statusText}`;
+        }
+    }
+
+    async function deletePersona(personaId) {
+        if (!confirm(`Delete persona "${personaId}"? This cannot be undone.`)) return;
+        const resp = await fetch(`api/personas/${personaId}`, { method: 'DELETE' });
+        if (resp.ok) await loadPersonasList();
+        else alert('Failed to delete persona.');
+    }
+
+    // --- API Calls ---
+    async function apiFetch(endpoint) {
+        const resp = await fetch(endpoint);
+        return resp.json();
+    }
+
+    async function refreshData() {
+        const stats = await apiFetch('api/dashboard');
+        document.getElementById('stat-total-content').innerText = stats.total_content_pieces;
+        document.getElementById('stat-scheduled').innerText = stats.scheduled_posts;
+        document.getElementById('stat-avg-score').innerText = (stats.avg_performance_score * 100).toFixed(0) + '%';
+        document.getElementById('stat-pending-dms').innerText = stats.pending_dm_replies;
+ 
+        const recent = await apiFetch('api/content?limit=6');
+        renderGrid('recent-content-list', recent);
+    }
+ 
+    async function loadContent() {
+        const platform = document.getElementById('filter-platform').value;
+        const status = document.getElementById('filter-status').value;
+        const content = await apiFetch(`api/content?platform=${platform}&status=${status}`);
+        renderGrid('content-list', content);
+    }
+ 
+    async function loadMedia() {
+        const type = document.getElementById('filter-media-type').value;
+        const media = await apiFetch(`api/media/${type}`);
+        renderGrid('media-list', media, type === 'galleries');
+    }
+ 
+    async function loadSettings() {
+        const config = await apiFetch('api/settings');
+        document.getElementById('setting-voice-provider').value = config.voice_provider || 'elevenlabs';
+        document.getElementById('setting-video-provider').value = config.video_clip_provider || 'svd';
+        document.getElementById('setting-llm-model').value = config.azure_openai_deployment_mini || 'gpt-4o-mini';
+        document.getElementById('setting-lipsync-provider').value = config.lipsync_provider || 'hedra';
+        document.getElementById('setting-image-provider').value = config.image_provider || 'gpt-image-2';
+        document.getElementById('setting-video-mode').value = config.default_video_mode || 'scene_talking';
+        document.getElementById('setting-ig-enabled').checked = config.ig_content_enabled;
+        document.getElementById('setting-of-enabled').checked = config.of_content_enabled;
+        // Hedra + ElevenLabs (never pre-fill secrets in UI — show placeholder only if set)
+        if (config.hedra_api_key) document.getElementById('setting-hedra-key').placeholder = '••••••••• (saved)';
+        if (config.elevenlabs_voice_id) document.getElementById('setting-elevenlabs-voice-id').value = config.elevenlabs_voice_id;
+
+        const pipeVoice = document.getElementById('pipe-voice-provider');
+        if (pipeVoice) pipeVoice.value = config.voice_provider || 'elevenlabs';
+    }
+
+    async function saveSettings() {
+        const hedraKey = document.getElementById('setting-hedra-key').value.trim();
+        const elVoiceId = document.getElementById('setting-elevenlabs-voice-id').value.trim();
+        const body = {
+            voice_provider: document.getElementById('setting-voice-provider').value,
+            video_clip_provider: document.getElementById('setting-video-provider').value,
+            azure_openai_deployment_mini: document.getElementById('setting-llm-model').value,
+            lipsync_provider: document.getElementById('setting-lipsync-provider').value,
+            image_provider: document.getElementById('setting-image-provider').value,
+            default_video_mode: document.getElementById('setting-video-mode').value,
+            ig_content_enabled: document.getElementById('setting-ig-enabled').checked,
+            of_content_enabled: document.getElementById('setting-of-enabled').checked,
+            ...(hedraKey && { hedra_api_key: hedraKey }),
+            ...(elVoiceId && { elevenlabs_voice_id: elVoiceId }),
+        };
+        const resp = await fetch('api/settings', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(body)
+        });
+        const res = await resp.json();
+        alert(res.message || "Settings saved!");
+    }
+ 
+    // --- Rendering ---
+    function renderGrid(containerId, items, isGallery = false) {
+        const container = document.getElementById(containerId);
+        container.innerHTML = items.length === 0 ? '<p style="color: var(--text-dim);">No items found.</p>' : '';
+ 
+        items.forEach(item => {
+            const card = document.createElement('div');
+            card.className = 'media-card';
+ 
+            let mediaHtml = '';
+            if (isGallery) {
+                mediaHtml = `<div class="media-thumb"><i class="fas fa-images" style="font-size: 3rem; color: var(--text-dim); position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);"></i></div>`;
+            } else {
+                const url = item.video_url || item.image_url || 'https://via.placeholder.com/1080x1920?text=Processing';
+                if (item.video_url) {
+                    mediaHtml = `<div class="media-thumb"><video src="${url}" muted onmouseover="this.play()" onmouseout="this.pause()"></video></div>`;
+                } else {
+                    mediaHtml = `<div class="media-thumb"><img src="${url}" alt="Content"></div>`;
+                }
+            }
+ 
+            const platformBadge = item.platform ? `<div class="platform-badge badge-${item.platform === 'instagram' ? 'ig' : 'of'}">${item.platform}</div>` : '';
+ 
+            card.innerHTML = `
+                ${platformBadge}
+                ${mediaHtml}
+                <div class="media-info">
+                    <div class="media-caption">${item.caption || item.gallery_id || 'Generating...'}</div>
+                    <div class="media-meta">
+                        <span>${item.status || (isGallery ? item.count + ' images' : '')}</span>
+                        <span>${new Date(item.created_at).toLocaleDateString()}</span>
+                    </div>
+                </div>
+            `;
+            container.appendChild(card);
+        });
+    }
+ 
+    // --- Pipeline ---
+    function openPipeline() { document.getElementById('pipeline-modal').style.display = 'flex'; loadModelPicker(); }
+    function closePipeline() {
+        document.getElementById('pipeline-modal').style.display = 'none';
+        if (logStream) logStream.close();
+        document.getElementById('pipeline-status').style.display = 'none';
+        document.getElementById('btn-start-pipeline').style.display = 'flex';
+    }
+ 
+    let selectedPersonaId = 'default';
+
+    async function loadModelPicker() {  // kept as alias — called by openPipeline
+        const grid = document.getElementById('persona-picker-grid');
+        try {
+            const res = await fetch('api/personas');
+            const personas = await res.json();
+            if (!personas.length) {
+                grid.innerHTML = '<div style="color:#888;font-size:0.8rem;grid-column:span 3;">No personas found.</div>';
+                return;
+            }
+            grid.innerHTML = '';
+            personas.forEach((p, idx) => {
+                const card = document.createElement('div');
+                card.style.cssText = [
+                    'border: 2px solid #2a2a35',
+                    'border-radius: 10px',
+                    'overflow: hidden',
+                    'cursor: pointer',
+                    'transition: border-color 0.15s',
+                    'display: flex',
+                    'flex-direction: column',
+                ].join(';');
+                card.dataset.personaId = p.id;
+
+                const imgArea = document.createElement('div');
+                imgArea.style.cssText = 'aspect-ratio: 9/16; overflow: hidden; background: #1c1c22;';
+                if (p.reference_image_url) {
+                    imgArea.innerHTML = `<img src="${p.reference_image_url}" style="width:100%;height:100%;object-fit:cover;display:block;" loading="lazy"/>`;
+                } else {
+                    imgArea.innerHTML = `<div style="height:100%;display:flex;align-items:center;justify-content:center;color:#555;font-size:2rem;">🧍</div>`;
+                }
+
+                const label = document.createElement('div');
+                label.style.cssText = 'padding: 0.4rem 0.5rem; font-size: 0.7rem; font-weight: 600; color: #ccc; background: #141418; text-align: center;';
+                label.textContent = p.display_name;
+
+                card.appendChild(imgArea);
+                card.appendChild(label);
+                card.addEventListener('click', () => selectPersona(card, p.id));
+                grid.appendChild(card);
+
+                if (idx === 0) selectPersona(card, p.id);
+            });
+        } catch(e) {
+            grid.innerHTML = '<div style="color:#888;font-size:0.8rem;grid-column:span 3;">Could not load personas.</div>';
+        }
+    }
+
+    function selectPersona(card, personaId) {
+        document.querySelectorAll('#persona-picker-grid > div').forEach(c => {
+            c.style.borderColor = '#2a2a35';
+            c.style.outline = 'none';
+        });
+        card.style.borderColor = '#a78bfa';
+        card.style.outline = '2px solid #a78bfa';
+        card.style.outlineOffset = '1px';
+        selectedPersonaId = personaId;
+    }
+
+    async function startPipeline() {
+        const platforms = Array.from(document.querySelectorAll('#pipeline-modal input[type="checkbox"][value]'))
+            .filter(c => c.checked).map(c => c.value);
+ 
+        const body = {
+            persona: selectedPersonaId,
+            pillar: document.getElementById('pipe-pillar').value,
+            platforms: platforms,
+            video_mode: document.getElementById('pipe-mode').value,
+            voice_provider: document.getElementById('pipe-voice-provider').value,
+            image_provider: document.getElementById('pipe-image-provider').value,
+            video_clip_provider: document.getElementById('pipe-video-provider').value,
+            image_count: parseInt(document.getElementById('pipe-img-count').value),
+            scripts_count: parseInt(document.getElementById('pipe-script-count').value),
+            generate_gallery: document.getElementById('pipe-gallery').checked,
+        };
+
+        // Record time BEFORE the request so we can filter only new content pieces
+        const pipelineStartedAt = Date.now();
+
+        const resp = await fetch('api/pipeline/run', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(body)
+        });
+
+        document.getElementById('btn-start-pipeline').style.display = 'none';
+        document.getElementById('pipeline-status').style.display = 'block';
+        const logContainer = document.getElementById('pipeline-logs');
+        logContainer.innerHTML = '<div class="log-line">🚀 Engine started. Generating scripts...</div>';
+
+        // Poll for a content piece created AFTER we triggered the pipeline.
+        // Cloud image generation (gpt-image-2) takes ~30s/image so allow up to 10 min.
+        let attempts = 0;
+        const maxAttempts = 200; // 200 × 3s = 10 minutes
+        const pollInterval = setInterval(async () => {
+            attempts++;
+
+            // Show elapsed time every 5 seconds so the user knows it's alive
+            if (attempts % 2 === 0) {
+                const elapsed = Math.floor((Date.now() - pipelineStartedAt) / 1000);
+                const mins = Math.floor(elapsed / 60);
+                const secs = elapsed % 60;
+                const elapsedStr = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+                const statusLine = logContainer.querySelector('.poll-status');
+                const msg = `⏳ Waiting for pipeline... (${elapsedStr} elapsed)`;
+                if (statusLine) {
+                    statusLine.innerText = msg;
+                } else {
+                    const line = document.createElement('div');
+                    line.className = 'log-line poll-status';
+                    line.innerText = msg;
+                    logContainer.appendChild(line);
+                }
+                logContainer.scrollTop = logContainer.scrollHeight;
+            }
+
+            try {
+                const content = await apiFetch('api/content?limit=1');
+                if (content.length > 0) {
+                    const pieceCreatedAt = new Date(content[0].created_at).getTime();
+                    // Only accept a piece created AFTER we triggered this run
+                    if (pieceCreatedAt >= pipelineStartedAt - 2000) {
+                        clearInterval(pollInterval);
+                        const statusLine = logContainer.querySelector('.poll-status');
+                        if (statusLine) statusLine.remove();
+                        const line = document.createElement('div');
+                        line.className = 'log-line';
+                        line.innerText = '✅ Pipeline started. Streaming logs...';
+                        logContainer.appendChild(line);
+                        setupLogStream(content[0].id);
+                        return;
+                    }
+                }
+            } catch(e) {
+                console.warn('Poll error:', e);
+            }
+
+            if (attempts >= maxAttempts) {
+                clearInterval(pollInterval);
+                const line = document.createElement('div');
+                line.className = 'log-line error';
+                line.innerText = '⚠️ Dashboard timed out waiting for UI feedback — but the pipeline may still be running in the background. Check the Content tab in a few minutes or run: tail -f backend/data/app.log';
+                logContainer.appendChild(line);
+                document.getElementById('btn-start-pipeline').style.display = 'flex';
+            }
+        }, 3000);
+    }
+ 
+    function setupLogStream(pieceId) {
+        if (logStream) logStream.close();
+        const logContainer = document.getElementById('pipeline-logs');
+
+        logStream = new EventSource(`api/content/${pieceId}/logs/stream`);
+        logStream.onmessage = (e) => {
+            // Remove the elapsed timer line if still present
+            const statusLine = logContainer.querySelector('.poll-status');
+            if (statusLine) statusLine.remove();
+
+            const line = document.createElement('div');
+            line.className = 'log-line';
+            line.innerText = e.data;
+            logContainer.appendChild(line);
+            logContainer.scrollTop = logContainer.scrollHeight;
+
+            if (e.data.includes('[DONE]')) {
+                logStream.close();
+                const done = document.createElement('div');
+                done.className = 'log-line';
+                done.style.color = 'var(--success)';
+                done.innerText = '✅ Pipeline complete! Refreshing dashboard...';
+                logContainer.appendChild(done);
+                setTimeout(() => { refreshData(); closePipeline(); }, 3000);
+            }
+        };
+        logStream.onerror = () => {
+            logStream.close();
+            const line = document.createElement('div');
+            line.className = 'log-line';
+            line.style.color = 'var(--warning, #f59e0b)';
+            line.innerText = '⚠️ Log stream ended. Pipeline may still be running — check Content tab in a few minutes.';
+            logContainer.appendChild(line);
+            document.getElementById('btn-start-pipeline').style.display = 'flex';
+        };
+    }
+
+    // Init
+    window.onload = refreshData;
+</script>
+</body>
+</html>

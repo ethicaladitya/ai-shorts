@@ -17,7 +17,8 @@ export DATABASE_URL="sqlite:///${DATA_DIR}/ai_shorts.db"
 export DATA_DIR="$DATA_DIR"
 export OUTPUT_DIR="$DATA_DIR/output"
 export TEMP_DIR="$DATA_DIR/temp"
-export ASSETS_DIR="$DATA_DIR/assets"
+export ASSETS_DIR="$DATA_DIR"
+export PYTHONMALLOC=malloc
 
 # Load .env from project root (one level up from backend/)
 if [[ -f "$SCRIPT_DIR/../.env" ]]; then
@@ -35,5 +36,5 @@ mkdir -p "$DATA_DIR/output" "$DATA_DIR/temp" "$DATA_DIR/assets" "$DATA_DIR/faces
 exec "$VENV/bin/uvicorn" app.main:app \
     --host 127.0.0.1 \
     --port 8787 \
-    --workers 2 \
+    --workers 1 \
     --log-level info

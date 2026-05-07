@@ -17,11 +17,17 @@ RUN pip install --upgrade pip setuptools wheel
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Install Playwright Chromium for OnlyFans automation
+RUN playwright install chromium --with-deps 2>/dev/null || true
+
 # App code
 COPY . .
 
 # Create data directories
-RUN mkdir -p /app/data/output /app/data/temp /app/data/assets
+RUN mkdir -p /app/data/output /app/data/temp /app/data/assets \
+             /app/data/persona_media/images \
+             /app/data/persona_media/videos \
+             /app/data/persona_media/audio
 
 # Static directory
 RUN mkdir -p /app/app/static

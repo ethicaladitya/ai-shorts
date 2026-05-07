@@ -1,0 +1,32 @@
+<div id="progress-container"
+    hx-get="/ugc/jobs/{{ job.id }}/poll"
+    hx-trigger="every 3s"
+    hx-target="#progress-container"
+    hx-swap="outerHTML">
+
+    <div class="bg-white rounded-xl border border-gray-200 p-5">
+        <div class="flex items-center justify-between mb-3">
+            <p class="text-sm font-semibold text-gray-900">{{ job.step or job.status.value }}</p>
+            <p class="text-sm text-gray-400">{{ (job.progress * 100)|int }}%</p>
+        </div>
+        <!-- Progress bar -->
+        <div class="w-full bg-gray-100 rounded-full h-2">
+            <div class="bg-gray-900 h-2 rounded-full transition-all duration-500"
+                style="width: {{ (job.progress * 100)|int }}%"></div>
+        </div>
+        {% if job.log %}
+        <p class="text-xs text-gray-400 mt-2 font-mono truncate">
+            {{ job.log.split('\n')|last }}
+        </p>
+        {% endif %}
+    </div>
+
+    {% if job.status.value in ('complete', 'failed') %}
+    <script>
+        // Stop polling once terminal state reached
+        document.getElementById('progress-container')?.removeAttribute('hx-trigger');
+        htmx.process(document.getElementById('progress-container'));
+        window.location.reload();
+    </script>
+    {% endif %}
+</div>

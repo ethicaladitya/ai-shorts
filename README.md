@@ -163,12 +163,34 @@ ai-shorts/
 ## Logs
 
 ```bash
-# All containers
+# All containers (if running in Docker)
 ssh nodejs 'cd /opt/ai-shorts-system && docker compose -p ai_shorts_system logs -f'
 
-# Backend only
-ssh nodejs 'docker logs -f ai-shorts-backend'
+# Backend only (local)
+tail -f backend/data/app.log
 
-# App log
-ssh nodejs 'cat /opt/ai-shorts-system/data/app.log'
+# View errors only
+grep "ERROR" backend/data/app.log
 ```
+
+## Troubleshooting & Debugging
+
+If the pipeline stalls or the dashboard shows "Timeout waiting for engine to start", follow these steps:
+
+### 1. Check for DNS / Connection Errors
+The engine might be failing to reach Azure. You can verify this by checking for `nodename nor servname provided` in the logs.
+If you see this, check your `.env` endpoints.
+
+**Common Fix**: If your `AZURE_OPENAI_TTS_ENDPOINT` is failing, comment it out. The system will automatically fall back to using your primary `AZURE_OPENAI_ENDPOINT` for voice generation.
+
+### 2. Verify API Keys
+Ensure your `AZURE_OPENAI_API_KEY` is active and has permissions for both chat (GPT-4o) and TTS deployments.
+
+### 3. Clear Stale Tasks
+If the system hangs, restart the backend to clear memory and hung processes:
+```bash
+./restart.sh
+```
+
+### 4. JavaScript Errors
+If buttons aren't clicking, refresh the page with **Cmd + R**. I have added safety checks to prevent crashes when clicking empty tabs.

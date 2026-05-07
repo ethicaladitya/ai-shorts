@@ -1,0 +1,66 @@
+# backend/persona_system/voice_engine/profiles.yaml
+
+profiles:
+  soft_feminine_v1:
+    name: "Soft & Feminine"
+    description: "Breathier, warmer tone with gentle pacing. Ideal for intimate confessions."
+    base_voice: "af_sky"
+    pitch: "+2%"
+    speed: 0.92
+    pause_frequency: 0.25
+    pauses: "frequent_short"
+    tone: ["soft", "warm", "playful", "intimate"]
+    randomness: 0.3
+    eq:
+      bass: "+3dB"
+      treble: "-2dB"
+
+  playful_teasing:
+    name: "Playful & Teasing"
+    description: "Faster, higher energy with frequent fillers and varied pitch."
+    base_voice: "af_sky"
+    pitch: "+5%"
+    speed: 1.05
+    pause_frequency: 0.15
+    pauses: "irregular"
+    tone: ["energetic", "sassy", "teasing"]
+    randomness: 0.5
+    eq:
+      bass: "+1dB"
+      treble: "+2dB"
+
+  calm_thoughtful:
+    name: "Calm & Thoughtful"
+    description: "Slower, deeper, and very steady. Minimal fillers."
+    base_voice: "af_sky"
+    pitch: "-2%"
+    speed: 0.88
+    pause_frequency: 0.3
+    pauses: "long_deliberate"
+    tone: ["calm", "steady", "mature"]
+    randomness: 0.1
+    eq:
+      bass: "+5dB"
+      treble: "-4dB"
+
+emotions:
+  playful:
+    pitch_mod: "+3%"
+    speed_mod: 1.1
+    pause_mod: 0.8
+  shy:
+    pitch_mod: "-2%"
+    speed_mod: 0.85
+    pause_mod: 1.5
+  teasing:
+    pitch_mod: "+5%"
+    speed_mod: 1.0
+    pause_mod: 1.2
+  calm:
+    pitch_mod: "0%"
+    speed_mod: 0.9
+    pause_mod: 1.0
+  slightly_chaotic:
+    pitch_mod: "+8%"
+    speed_mod: 1.2
+    pause_mod: 0.5

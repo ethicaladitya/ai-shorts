@@ -153,7 +153,7 @@ if [[ -f "$SCRIPT_DIR/.env" ]]; then
     while IFS= read -r line || [[ -n "$line" ]]; do
         [[ "$line" =~ ^#.*$ || -z "${line// }" ]] && continue
         key="${line%%=*}"
-        if [[ "$key" =~ ^(AZURE_OPENAI_|AZURE_SPEECH_|PEXELS_|DID_|ELEVENLABS_|AI_PROVIDER|VOICE_PROVIDER|OPENAI_API_KEY|MAI_VOICE_|GOOGLE_CLIENT_ID|GOOGLE_CLIENT_SECRET|ALLOWED_EMAIL|BASE_URL|SECRET_KEY|VOICEBOX_|KOKORO_) ]]; then
+        if [[ "$key" =~ ^(AZURE_OPENAI_|AZURE_SPEECH_|PEXELS_|DID_|ELEVENLABS_|AI_PROVIDER|VOICE_PROVIDER|OPENAI_API_KEY|MAI_VOICE_|GOOGLE_CLIENT_ID|GOOGLE_CLIENT_SECRET|ALLOWED_EMAIL|BASE_URL|SECRET_KEY|VOICEBOX_|KOKORO_|ACTIVE_PERSONA|CONTENT_SCORE_MIN|IMAGE_SCORE_MIN|SD_BASE_URL|SD_LORA_TRIGGER|INSTAGRAM_|ONLYFANS_) ]]; then
             echo "$line" >> "$SYNC_TMP"
         fi
     done < "$SCRIPT_DIR/.env"
@@ -203,11 +203,13 @@ ok "Environment configured"
 info "Building and starting Docker containers..."
 rcmd "cd ${PROJECT_DIR} && docker compose -p ${DOCKER_PROJECT} build --quiet 2>&1 | tail -5"
 # Activate the voicebox profile if VOICE_PROVIDER=voicebox is set in .env
-_local_vp=$(grep '^VOICE_PROVIDER=' "${BASH_SOURCE[0]%/*}/.env" 2>/dev/null | cut -d= -f2- | tr -d '[:space:]' || echo "")
-_compose_profile_flags=""
-[[ "$_local_vp" == "voicebox" ]] && _compose_profile_flags="--profile voicebox"
-rcmd "cd ${PROJECT_DIR} && docker compose -p ${DOCKER_PROJECT} up -d ${_compose_profile_flags} 2>&1 | tail -10"
+_local_vp=$(grep '^VOICE_PROVIDER=' "${SCRIPT_DIR}/.env" 2>/dev/null | cut -d= -f2- | tr -d '[:space:]' || echo "")
+_compose_env=""
+[[ "$_local_vp" == "voicebox" ]] && _compose_env="COMPOSE_PROFILES=voicebox"
+
+rcmd "cd ${PROJECT_DIR} && ${_compose_env} docker compose -p ${DOCKER_PROJECT} up -d"
 ok "Containers started"
+
 
 # Wait for health
 info "Waiting for services to be ready..."
@@ -317,6 +319,17 @@ server {
         proxy_read_timeout 120s;
     }
 
+    # Persona System Dashboard
+    location /persona/ {
+        proxy_pass http://127.0.0.1:${UI_PORT}/persona/;
+        proxy_http_version 1.1;
+        proxy_set_header Host \\\$host;
+        proxy_set_header X-Real-IP \\\$remote_addr;
+        proxy_set_header X-Forwarded-For \\\$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \\\$scheme;
+        proxy_read_timeout 300s;
+    }
+
     # n8n
     location /n8n/ {
         proxy_pass http://127.0.0.1:${N8N_PORT};
@@ -378,33 +391,37 @@ NGINX_HTTP_EOF"
     rcmd "sudo systemctl reload nginx 2>/dev/null || sudo nginx -s reload 2>/dev/null" || warn "Could not reload nginx"
     ok "Nginx configured"
 
-    # ─── DNS Check & SSL ─────────────────────────────────────────────────────
-    info "Checking DNS for ${DOMAIN}..."
+    # ─── SSL Setup ─────────────────────────────────────────────────────────
+    info "Setting up SSL certificate for ${DOMAIN}..."
     SERVER_IP=$(rcmd "curl -sf https://api.ipify.org 2>/dev/null || curl -sf https://ifconfig.me 2>/dev/null || echo ''")
     DOMAIN_IP=$(dig +short "${DOMAIN}" 2>/dev/null | tail -1 || true)
 
-    if [[ -n "$SERVER_IP" && "$DOMAIN_IP" == "$SERVER_IP" ]]; then
-        ok "DNS resolves correctly: ${DOMAIN} → ${SERVER_IP}"
+    if [[ -n "$SERVER_IP" && "$DOMAIN_IP" != "$SERVER_IP" ]]; then
+        warn "DNS IP (${DOMAIN_IP}) does not match Server IP (${SERVER_IP})."
+        warn "This is expected if using Cloudflare Proxy. Proceeding anyway..."
+    fi
 
-        # Install certbot if needed
-        info "Setting up SSL certificate..."
-        rcmd "which certbot >/dev/null 2>&1 || sudo apt-get update -qq && sudo apt-get install -y -qq certbot python3-certbot-nginx >/dev/null 2>&1" || true
-        rcmd "sudo mkdir -p /var/www/certbot"
+    # Install certbot if needed
+    rcmd "which certbot >/dev/null 2>&1 || sudo apt-get update -qq && sudo apt-get install -y -qq certbot python3-certbot-nginx >/dev/null 2>&1" || true
+    rcmd "sudo mkdir -p /var/www/certbot"
 
-        # Check if cert already exists
-        CERT_EXISTS=$(rcmd "test -d /etc/letsencrypt/live/${DOMAIN} && echo yes || echo no")
+    # Check if cert already exists
+    CERT_EXISTS=$(rcmd "test -d /etc/letsencrypt/live/${DOMAIN} && echo yes || echo no")
 
-        if [[ "$CERT_EXISTS" == "yes" ]]; then
-            ok "SSL certificate already exists"
+    if [[ "$CERT_EXISTS" == "yes" ]]; then
+        ok "SSL certificate already exists"
+    else
+        info "Obtaining SSL certificate via certbot..."
+        # Try to obtain certificate. We use --webroot to be more robust through proxies.
+        if rcmd "sudo certbot certonly --webroot -w /var/www/certbot -d ${DOMAIN} --non-interactive --agree-tos -m admin@theadityashah.com 2>&1 | tail -5"; then
+            ok "SSL certificate obtained"
+            CERT_EXISTS="yes"
         else
-            info "Obtaining SSL certificate via certbot..."
-            if rcmd "sudo certbot --nginx -d ${DOMAIN} --non-interactive --agree-tos -m admin@theadityashah.com 2>&1 | tail -5"; then
-                ok "SSL certificate obtained"
-            else
-                warn "Certbot failed. You may need to run it manually."
-            fi
+            warn "Certbot failed. You may need to run it manually or check Cloudflare settings."
         fi
+    fi
 
+    if [[ "$CERT_EXISTS" == "yes" ]]; then
         # Re-install the full HTTPS config now that cert exists
         rcmd "cat > /tmp/${NGINX_CONF} << 'NGINX_FULL_EOF'
 server {
@@ -456,6 +473,16 @@ server {
         proxy_read_timeout 120s;
     }
 
+    location /persona/ {
+        proxy_pass http://127.0.0.1:${UI_PORT}/persona/;
+        proxy_http_version 1.1;
+        proxy_set_header Host \\\$host;
+        proxy_set_header X-Real-IP \\\$remote_addr;
+        proxy_set_header X-Forwarded-For \\\$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \\\$scheme;
+        proxy_read_timeout 300s;
+    }
+
     location /n8n/ {
         proxy_pass http://127.0.0.1:${N8N_PORT};
         proxy_http_version 1.1;
@@ -482,10 +509,8 @@ NGINX_FULL_EOF"
         else
             warn "HTTPS verification pending. May take a moment to propagate."
         fi
-    else
-        warn "DNS mismatch: ${DOMAIN} → ${DOMAIN_IP:-unresolved} (server: ${SERVER_IP:-unknown})"
-        warn "Skipping SSL. Configure DNS first, then re-run deploy."
     fi
+
 else
     warn "Nginx not found on server."
     echo ""
@@ -503,11 +528,12 @@ echo -e "${BOLD}═════════════════════�
 echo -e "${GREEN}${BOLD}  ✓ DEPLOYMENT COMPLETE${NC}"
 echo -e "${BOLD}═══════════════════════════════════════════════════${NC}"
 echo ""
-echo -e "  ${BOLD}UI:${NC}     http://${SSH_TARGET%%@*}:${UI_PORT}"
-echo -e "  ${BOLD}API:${NC}    http://${SSH_TARGET%%@*}:${API_PORT}"
-echo -e "  ${BOLD}n8n:${NC}    http://${SSH_TARGET%%@*}:${N8N_PORT}"
-echo -e "  ${BOLD}Domain:${NC} https://${DOMAIN}"
-echo -e "  ${BOLD}API Docs:${NC} https://${DOMAIN}/api/docs"
+echo -e "  ${BOLD}UI:${NC}          http://${SSH_TARGET%%@*}:${UI_PORT}"
+echo -e "  ${BOLD}API:${NC}         http://${SSH_TARGET%%@*}:${API_PORT}"
+echo -e "  ${BOLD}n8n:${NC}         http://${SSH_TARGET%%@*}:${N8N_PORT}"
+echo -e "  ${BOLD}Domain:${NC}      https://${DOMAIN}"
+echo -e "  ${BOLD}API Docs:${NC}    https://${DOMAIN}/api/docs"
+echo -e "  ${BOLD}Persona UI:${NC}  https://${DOMAIN}/persona/"
 echo ""
 echo -e "  ${BOLD}Project:${NC} ${PROJECT_DIR}"
 echo -e "  ${BOLD}Logs:${NC}   ssh ${SSH_TARGET} 'cd ${PROJECT_DIR} && docker compose -p ${DOCKER_PROJECT} logs -f'"

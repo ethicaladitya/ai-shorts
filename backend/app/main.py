@@ -12,6 +12,7 @@ from app.config import settings
 from app.database import init_db, get_db
 from app.routers import dashboard, videos, scripts, knowledge, render, settings as settings_router
 from app.routers.avatar import router as avatar_router
+from app.routers.ugc import router as ugc_router
 from app.models import KnowledgeEntry
 import importlib.util
 from app.routers.auth import router as auth_router
@@ -59,6 +60,17 @@ app.include_router(knowledge.router)
 app.include_router(render.router)
 app.include_router(settings_router.router)
 app.include_router(avatar_router)
+app.include_router(ugc_router)
+app.mount("/persona_media", StaticFiles(directory="data/persona_media"), name="persona_media")
+
+# ── Persona System — mounted at /persona/ ──────────────────────────────────
+try:
+    from persona_system.dashboard.api import app as persona_app
+    app.mount("/persona", persona_app)
+    logger.info("Persona System mounted at /persona/")
+except Exception as _pe:
+    logger.warning("Persona System not available: %s", _pe)
+
 
 
 
@@ -100,6 +112,18 @@ async def startup():
         db.commit()
         logger.info(f"Marked {len(stale)} stale job(s) as FAILED")
 
+    # Recover stale UGC jobs
+    from app.models import UGCJob, UGCJobStatus
+    stale_ugc = db.query(UGCJob).filter(
+        UGCJob.status.notin_([UGCJobStatus.COMPLETE, UGCJobStatus.FAILED, UGCJobStatus.PENDING])
+    ).all()
+    if stale_ugc:
+        for job in stale_ugc:
+            job.status = UGCJobStatus.FAILED
+            job.error_message = "Orphaned — server restarted mid-pipeline"
+        db.commit()
+        logger.info(f"Recovered {len(stale_ugc)} stale UGC job(s)")
+
     # Seed knowledge from script on every startup
     seed_knowledge_from_script(db)
     db.close()
@@ -120,6 +144,14 @@ async def startup():
 
     asyncio.create_task(_warmup_whisper())
     logger.info("AI Shorts System ready.")
+
+    # ── Mount Persona System ──────────────────────────────────────────────
+    try:
+        from persona_system.shared.database import init_db as persona_init_db
+        persona_init_db()
+        logger.info("Persona System DB initialised.")
+    except Exception as e:
+        logger.warning("Persona System DB init failed (non-fatal): %s", e)
 
 
 @app.get("/health")
