@@ -391,7 +391,7 @@ class CreditTransaction(Base):
     balance_after = Column(Integer, default=0)
     type = Column(String(50), nullable=False)       # signup_bonus | purchase | video_generation | refund
     description = Column(String(500))
-    payment_id = Column(String(200), nullable=True) # Instamojo payment ID
+    payment_id = Column(String(200), nullable=True) # Instamojo payment request ID for purchases
     payment_status = Column(String(50), nullable=True)
     amount_paid_inr = Column(Float, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), index=True)

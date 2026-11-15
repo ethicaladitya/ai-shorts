@@ -1,10 +1,14 @@
 """Billing router — credit balance, purchase packs via Instamojo."""
 from __future__ import annotations
 
+import re
+from decimal import Decimal, InvalidOperation
+
 import httpx
-from fastapi import APIRouter, Depends, Form, Request
+from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.config import settings
@@ -144,50 +148,114 @@ async def initiate_purchase(
         )
 
 
+async def _fulfil_verified_payment(
+    db: Session, request_id: str, payment_id: str, *, email: str | None = None,
+) -> str:
+    """Treat callbacks as hints; only authenticated provider evidence grants credits."""
+    if not all(isinstance(value, str) and re.fullmatch(r"[A-Za-z0-9_-]{1,200}", value)
+               for value in (request_id, payment_id)):
+        raise HTTPException(400, "Invalid payment identifiers")
+
+    # payment_id historically stores the REQUEST id in the local purchase row.
+    rows = db.query(CreditTransaction).filter(
+        CreditTransaction.payment_id == request_id,
+        CreditTransaction.type == "purchase",
+    ).limit(2).all()
+    if len(rows) != 1:
+        raise HTTPException(400, "Unknown or ambiguous payment request")
+    tx = rows[0]
+    if email is not None and (not email or tx.user_email.lower() != email.lower()):
+        raise HTTPException(403, "Payment belongs to another account")
+    if tx.payment_status == "completed":
+        return "completed"
+    if tx.payment_status != "pending" or tx.amount <= 0:
+        raise HTTPException(400, "Purchase is not pending")
+    tx_id, owner, credits, price = tx.id, tx.user_email, tx.amount, tx.amount_paid_inr
+    # Do not retain a database read transaction across the provider request.
+    db.rollback()
+
+    if not settings.instamojo_api_key or not settings.instamojo_auth_token:
+        raise HTTPException(503, "Payment verification is unavailable")
+    try:
+        async with httpx.AsyncClient(follow_redirects=False, timeout=15) as client:
+            response = await client.get(
+                f"{settings.instamojo_base_url.rstrip('/')}/payment-requests/{request_id}/{payment_id}/",
+                headers={"X-Api-Key": settings.instamojo_api_key,
+                         "X-Auth-Token": settings.instamojo_auth_token},
+            )
+        response.raise_for_status()
+        body = response.json()
+    except (httpx.HTTPError, ValueError):
+        raise HTTPException(503, "Payment verification is unavailable") from None
+
+    provider_request = body.get("payment_request") if isinstance(body, dict) else None
+    payment = provider_request.get("payment") if isinstance(provider_request, dict) else None
+    if (not isinstance(payment, dict) or body.get("success") is not True or
+            provider_request.get("id") != request_id or
+            payment.get("payment_id") != payment_id):
+        raise HTTPException(400, "Payment verification failed")
+    try:
+        paid, expected = Decimal(str(payment.get("amount"))), Decimal(str(price))
+        amount_matches = paid.is_finite() and expected.is_finite() and expected > 0 and paid == expected
+    except InvalidOperation:
+        amount_matches = False
+    if (payment.get("status") != "Credit" or payment.get("currency") != "INR" or
+            not amount_matches or
+            str(payment.get("buyer_email", "")).lower() != owner.lower()):
+        raise HTTPException(400, "Payment verification failed")
+
+    try:
+        # Compare-and-set and balance increment share one transaction. Only one
+        # concurrent redirect/webhook can claim the pending purchase.
+        claimed = db.query(CreditTransaction).filter(
+            CreditTransaction.id == tx_id,
+            CreditTransaction.payment_status == "pending",
+            CreditTransaction.payment_id == request_id,
+            CreditTransaction.user_email == owner,
+            CreditTransaction.type == "purchase",
+            CreditTransaction.amount == credits,
+            CreditTransaction.amount_paid_inr == price,
+        ).update({CreditTransaction.payment_status: "completed"}, synchronize_session=False)
+        if not claimed:
+            db.rollback()
+            current = db.get(CreditTransaction, tx_id)
+            if current is not None and current.payment_status == "completed":
+                return "completed"
+            raise HTTPException(409, "Purchase changed during verification")
+        updated = db.query(User).filter(User.email == owner).update(
+            {User.credits: func.coalesce(User.credits, 0) + credits}, synchronize_session=False)
+        if updated != 1:
+            raise HTTPException(409, "Purchase account is unavailable")
+        balance = db.query(User.credits).filter(User.email == owner).scalar()
+        db.query(CreditTransaction).filter(CreditTransaction.id == tx_id).update(
+            {CreditTransaction.balance_after: balance}, synchronize_session=False)
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    return "completed"
+
+
 @router.get("/payment-return")
 async def payment_return(request: Request, db: Session = Depends(get_db)):
-    """Instamojo redirects here after payment."""
-    payment_id = request.query_params.get("payment_id", "")
-    payment_request_id = request.query_params.get("payment_request_id", "")
-    payment_status = request.query_params.get("payment_status", "")
+    """Verify the provider payment, never the browser's payment_status parameter."""
     email = request.session.get("user_email", "")
-
-    if payment_status == "Credit":
-        # Verify and fulfil
-        tx = (db.query(CreditTransaction)
-              .filter(CreditTransaction.payment_id == payment_request_id)
-              .first())
-        if tx and tx.payment_status == "pending":
-            tx.payment_status = "completed"
-            user = _get_user(db, email)
-            if user:
-                user.credits = (user.credits or 0) + tx.amount
-                tx.balance_after = user.credits
-            db.commit()
-
-    return RedirectResponse("/billing?status=" + payment_status, status_code=303)
+    if not email:
+        return RedirectResponse("/auth/login", status_code=303)
+    await _fulfil_verified_payment(
+        db, request.query_params.get("payment_request_id", ""),
+        request.query_params.get("payment_id", ""), email=email,
+    )
+    return RedirectResponse("/billing?status=Credit", status_code=303)
 
 
 @router.post("/webhook")
 async def instamojo_webhook(request: Request, db: Session = Depends(get_db)):
-    """Instamojo webhook for payment confirmation."""
+    """A public notification triggers authenticated API verification, not trust."""
     form = await request.form()
-    payment_request_id = form.get("payment_request_id", "")
-    payment_status = form.get("status", "")
-    mac = form.get("mac", "")
-
-    if payment_status == "Credit":
-        tx = (db.query(CreditTransaction)
-              .filter(CreditTransaction.payment_id == payment_request_id)
-              .first())
-        if tx and tx.payment_status == "pending":
-            tx.payment_status = "completed"
-            user = _get_user(db, tx.user_email)
-            if user:
-                user.credits = (user.credits or 0) + tx.amount
-                tx.balance_after = user.credits
-            db.commit()
-
+    await _fulfil_verified_payment(
+        db, form.get("payment_request_id", ""), form.get("payment_id", ""),
+    )
     return {"status": "ok"}
 
 

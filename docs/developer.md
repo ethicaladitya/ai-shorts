@@ -167,3 +167,25 @@ tail -f backend/data/app.log
 
 - Check `N8N_WEBHOOK_URL` in `.env`.
 - Check `tail -f backend/data/app.log` for webhook POST errors.
+## Billing callback verification
+
+Browser redirects and public webhooks are notifications only. Both callbacks
+query Instamojo's authenticated payment-request/payment endpoint using
+`INSTAMOJO_API_KEY` and `INSTAMOJO_AUTH_TOKEN`. Credits require a successful
+`Credit` payment whose request ID, payment ID, amount, INR currency, and buyer
+email match the stored purchase. Browser returns must belong to the signed-in
+account. The webhook does not rely on caller-supplied status or MAC fields;
+the authenticated provider lookup is the authority.
+
+The pending-to-completed update and balance increment commit together. Repeated
+or simultaneous callbacks cannot fulfil the same purchase twice. Provider
+timeouts/errors return HTTP 503 and leave the purchase pending for retry.
+No database migration or webhook salt is required. Existing completed purchases
+are not retroactively verified.
+
+Offline regression coverage is in `backend/tests/test_billing.py`; it mocks the
+provider and uses a temporary SQLite database. It covers forged notifications,
+wrong-account returns, invalid provider evidence, retries, and simultaneous
+webhook/redirect delivery. No live payment was made for these tests.
+
+Provider contract: https://docs.instamojo.com/v1.1/reference/get-details-of-payment
