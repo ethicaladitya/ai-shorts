@@ -1,201 +1,143 @@
 {% extends "base.html" %}
 {% block title %}{{ persona.display_name }}{% endblock %}
+
 {% block content %}
+<div class="px-8 py-8">
 
-<div class="mb-6 flex items-center justify-between">
-    <div>
-        <a href="/personas/" class="text-sm text-gray-400 hover:text-gray-600">← Personas</a>
-        <h2 class="text-2xl font-bold text-gray-900 mt-2">{{ persona.display_name }}</h2>
-        <p class="text-sm text-gray-400">@{{ persona.persona_name }}</p>
-    </div>
-    <div class="flex gap-2">
-        <a href="/ugc/create?persona={{ persona.persona_name }}"
-           class="px-4 py-2 bg-gray-900 text-white text-sm font-medium rounded-lg hover:bg-gray-800">
-            + Generate Video
-        </a>
-        <a href="/personas/{{ persona.persona_name }}/edit"
-           class="px-4 py-2 border border-gray-200 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50">
-            Edit
-        </a>
-    </div>
-</div>
+    <!-- Header -->
+    <div class="mb-8 flex items-start gap-6">
+        <!-- Avatar -->
+        <div class="flex-shrink-0">
+            {% if persona.reference_image_path %}
+            <img src="/persona_avatars/{{ persona.persona_name }}/{{ persona.reference_image_path.split('/')[-1] }}"
+                 class="w-20 h-20 rounded-2xl object-cover border border-slate-200"
+                 onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+            <div class="w-20 h-20 rounded-2xl bg-gradient-to-br from-violet-400 to-purple-600 items-center justify-center" style="display:none">
+                <span class="text-2xl font-bold text-white">{{ persona.display_name[0].upper() }}</span>
+            </div>
+            {% else %}
+            <div class="w-20 h-20 rounded-2xl bg-gradient-to-br from-violet-400 to-purple-600 flex items-center justify-center">
+                <span class="text-2xl font-bold text-white">{{ persona.display_name[0].upper() }}</span>
+            </div>
+            {% endif %}
+        </div>
 
-<!-- Stats row -->
-<div class="grid grid-cols-4 gap-4 mb-6">
-    <div class="bg-white rounded-xl border border-gray-200 p-4 text-center">
-        <p class="text-2xl font-bold text-gray-900">{{ persona.total_videos }}</p>
-        <p class="text-xs text-gray-400 mt-1">Videos Generated</p>
-    </div>
-    <div class="bg-white rounded-xl border border-gray-200 p-4 text-center">
-        <p class="text-2xl font-bold text-gray-900">{{ persona.total_posts }}</p>
-        <p class="text-xs text-gray-400 mt-1">Posts Published</p>
-    </div>
-    <div class="bg-white rounded-xl border border-gray-200 p-4 text-center">
-        <p class="text-2xl font-bold {% if persona.total_cost_usd == 0 %}text-green-600{% else %}text-amber-600{% endif %}">
-            ${{ "%.3f"|format(persona.total_cost_usd) }}
-        </p>
-        <p class="text-xs text-gray-400 mt-1">Total Spent</p>
-    </div>
-    <div class="bg-white rounded-xl border border-gray-200 p-4 text-center">
-        <p class="text-2xl font-bold {% if persona.dm_auto_reply %}text-green-600{% else %}text-gray-400{% endif %}">
-            {{ "ON" if persona.dm_auto_reply else "OFF" }}
-        </p>
-        <p class="text-xs text-gray-400 mt-1">DM Auto-Reply</p>
-    </div>
-</div>
+        <div class="flex-1">
+            <div class="flex items-center gap-3 mb-1">
+                <h1 class="text-2xl font-bold text-slate-900">{{ persona.display_name }}</h1>
+                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium {{ 'bg-emerald-50 text-emerald-600' if persona.is_active else 'bg-red-50 text-red-600' }}">
+                    <span class="w-1.5 h-1.5 rounded-full {{ 'bg-emerald-400' if persona.is_active else 'bg-red-400' }}"></span>
+                    {{ 'Active' if persona.is_active else 'Inactive' }}
+                </span>
+            </div>
+            <p class="text-sm text-slate-400 font-mono mb-2">{{ persona.persona_name }}</p>
+            {% if persona.bio %}
+            <p class="text-sm text-slate-600 max-w-xl">{{ persona.bio }}</p>
+            {% endif %}
+        </div>
 
-<div class="grid grid-cols-3 gap-6">
-    <!-- Left: accounts + config -->
-    <div class="space-y-4">
-        <!-- Accounts -->
-        <div class="bg-white rounded-xl border border-gray-200 p-5">
-            <h3 class="text-sm font-semibold text-gray-700 mb-3">Linked Accounts</h3>
-            <div class="space-y-2 text-sm">
+        <div class="flex gap-2 flex-shrink-0">
+            <a href="/ugc/create"
+               class="inline-flex items-center gap-2 px-4 py-2 bg-violet-600 text-white text-sm font-medium rounded-xl hover:bg-violet-700 transition">
+                + Video
+            </a>
+            <a href="/personas/{{ persona.persona_name }}/edit"
+               class="inline-flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 text-sm font-medium rounded-xl hover:bg-slate-50 transition">
+                Edit
+            </a>
+        </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="grid grid-cols-4 gap-4 mb-8">
+        <div class="bg-white rounded-xl border border-slate-200 p-4 text-center">
+            <p class="text-2xl font-bold text-slate-900">{{ persona.total_videos }}</p>
+            <p class="text-xs text-slate-400 mt-1">Videos</p>
+        </div>
+        <div class="bg-white rounded-xl border border-slate-200 p-4 text-center">
+            <p class="text-2xl font-bold text-slate-900">{{ persona.total_posts }}</p>
+            <p class="text-xs text-slate-400 mt-1">Posts</p>
+        </div>
+        <div class="bg-white rounded-xl border border-slate-200 p-4 text-center">
+            <p class="text-2xl font-bold text-slate-900">${{ persona.total_cost_usd }}</p>
+            <p class="text-xs text-slate-400 mt-1">API Cost</p>
+        </div>
+        <div class="bg-white rounded-xl border border-slate-200 p-4 text-center">
+            <p class="text-2xl font-bold text-violet-600 font-mono text-sm truncate pt-1">{{ persona.voice_provider }}</p>
+            <p class="text-xs text-slate-400 mt-1">Voice</p>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+        <!-- Personality -->
+        {% if persona.personality %}
+        <div class="bg-white rounded-2xl border border-slate-200 p-6">
+            <h3 class="font-semibold text-slate-900 text-sm mb-3">Personality</h3>
+            <p class="text-sm text-slate-600 leading-relaxed">{{ persona.personality }}</p>
+        </div>
+        {% endif %}
+
+        <!-- Social connections -->
+        <div class="bg-white rounded-2xl border border-slate-200 p-6">
+            <h3 class="font-semibold text-slate-900 text-sm mb-4">Social Connections</h3>
+            <div class="space-y-3">
                 {% if persona.instagram_username %}
-                <div class="flex items-center gap-2">
-                    <span class="text-lg">📸</span>
-                    <span class="text-gray-700">@{{ persona.instagram_username }}</span>
-                    <span class="ml-auto text-xs px-2 py-0.5 rounded {% if persona.instagram_username %}bg-green-50 text-green-700{% else %}bg-gray-100 text-gray-400{% endif %}">linked</span>
-                </div>
-                {% endif %}
-                {% if persona.onlyfans_username %}
-                <div class="flex items-center gap-2">
-                    <span class="text-lg">🔞</span>
-                    <span class="text-gray-700">@{{ persona.onlyfans_username }}</span>
-                    <span class="ml-auto text-xs px-2 py-0.5 rounded bg-green-50 text-green-700">linked</span>
+                <div class="flex items-center gap-3">
+                    <div class="w-7 h-7 rounded-lg bg-gradient-to-br from-pink-500 to-orange-400 flex items-center justify-center">
+                        <svg class="w-3.5 h-3.5 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
+                    </div>
+                    <div>
+                        <p class="text-xs text-slate-500">Instagram</p>
+                        <p class="text-sm font-medium text-slate-800">@{{ persona.instagram_username }}</p>
+                    </div>
                 </div>
                 {% endif %}
                 {% if persona.tiktok_username %}
-                <div class="flex items-center gap-2">
-                    <span class="text-lg">🎵</span>
-                    <span class="text-gray-700">@{{ persona.tiktok_username }}</span>
-                    <span class="ml-auto text-xs px-2 py-0.5 rounded bg-green-50 text-green-700">linked</span>
+                <div class="flex items-center gap-3">
+                    <div class="w-7 h-7 rounded-lg bg-black flex items-center justify-center">
+                        <svg class="w-3.5 h-3.5 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1V9.01a6.33 6.33 0 00-.79-.05 6.34 6.34 0 00-6.34 6.34 6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.33-6.34V8.69a8.23 8.23 0 004.84 1.56V6.79a4.84 4.84 0 01-1.07-.1z"/></svg>
+                    </div>
+                    <div>
+                        <p class="text-xs text-slate-500">TikTok</p>
+                        <p class="text-sm font-medium text-slate-800">@{{ persona.tiktok_username }}</p>
+                    </div>
                 </div>
                 {% endif %}
-                {% if not persona.instagram_username and not persona.onlyfans_username and not persona.tiktok_username %}
-                <p class="text-gray-400 text-xs">No accounts linked. <a href="/personas/{{ persona.persona_name }}/edit" class="underline">Edit</a> to add.</p>
+                {% if persona.onlyfans_username %}
+                <div class="flex items-center gap-3">
+                    <div class="w-7 h-7 rounded-lg bg-blue-500 flex items-center justify-center">
+                        <span class="text-white text-xs font-bold">OF</span>
+                    </div>
+                    <div>
+                        <p class="text-xs text-slate-500">OnlyFans</p>
+                        <p class="text-sm font-medium text-slate-800">{{ persona.onlyfans_username }}</p>
+                    </div>
+                </div>
+                {% endif %}
+                {% if not persona.instagram_username and not persona.tiktok_username and not persona.onlyfans_username %}
+                <p class="text-sm text-slate-400">No social accounts connected.
+                    <a href="/personas/{{ persona.persona_name }}/edit" class="text-violet-600 hover:underline">Add them →</a>
+                </p>
                 {% endif %}
             </div>
         </div>
 
-        <!-- Voice -->
-        <div class="bg-white rounded-xl border border-gray-200 p-5">
-            <h3 class="text-sm font-semibold text-gray-700 mb-3">Voice</h3>
-            <div class="text-sm space-y-1">
-                <div class="flex justify-between">
-                    <span class="text-gray-500">Provider</span>
-                    <span class="font-medium text-gray-900">{{ persona.voice_provider }}</span>
-                </div>
-                {% if persona.voice_profile_id %}
-                <div class="flex justify-between">
-                    <span class="text-gray-500">Profile</span>
-                    <span class="font-mono text-xs text-gray-600">{{ persona.voice_profile_id[:8] }}…</span>
-                </div>
-                {% endif %}
-            </div>
-        </div>
-
-        <!-- Guardrails -->
-        {% if persona.dm_guardrails %}
-        <div class="bg-white rounded-xl border border-gray-200 p-5">
-            <h3 class="text-sm font-semibold text-gray-700 mb-3">DM Guardrails</h3>
-            <ul class="space-y-1">
-                {% for g in persona.dm_guardrails %}
-                <li class="text-xs text-gray-500 flex items-center gap-1.5">
-                    <span class="w-1.5 h-1.5 rounded-full bg-red-400 flex-shrink-0"></span>{{ g }}
-                </li>
+        <!-- Recent videos -->
+        {% if recent_jobs %}
+        <div class="bg-white rounded-2xl border border-slate-200 p-6">
+            <h3 class="font-semibold text-slate-900 text-sm mb-4">Recent Videos</h3>
+            <div class="space-y-2">
+                {% for j in recent_jobs %}
+                <a href="/ugc/{{ j.id }}" class="flex items-center gap-3 group">
+                    <span class="w-2 h-2 rounded-full flex-shrink-0 {{ 'bg-emerald-400' if j.status == 'complete' else ('bg-red-400' if j.status == 'failed' else 'bg-amber-400') }}"></span>
+                    <span class="text-sm text-slate-600 group-hover:text-slate-900 flex-1 truncate">{{ j.topic }}</span>
+                    <span class="text-xs text-slate-400">{{ j.platform }}</span>
+                </a>
                 {% endfor %}
-            </ul>
+            </div>
         </div>
         {% endif %}
-    </div>
-
-    <!-- Middle: recent videos -->
-    <div class="col-span-2 space-y-4">
-        <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
-            <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-                <h3 class="text-sm font-semibold text-gray-700">Recent UGC Jobs</h3>
-                <a href="/ugc/?persona={{ persona.persona_name }}" class="text-xs text-gray-400 hover:text-gray-700">View all →</a>
-            </div>
-            {% if recent_jobs %}
-            <table class="w-full text-sm">
-                <thead class="bg-gray-50 text-xs text-gray-500 uppercase">
-                    <tr>
-                        <th class="px-4 py-2 text-left">Topic</th>
-                        <th class="px-4 py-2 text-left">Platform</th>
-                        <th class="px-4 py-2 text-left">Status</th>
-                        <th class="px-4 py-2 text-right">Cost</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-gray-50">
-                    {% for j in recent_jobs %}
-                    <tr class="hover:bg-gray-50 cursor-pointer" onclick="location.href='/ugc/jobs/{{ j.id }}'">
-                        <td class="px-4 py-2 font-medium text-gray-800 max-w-xs truncate">{{ j.topic }}</td>
-                        <td class="px-4 py-2 text-gray-500">{{ j.platform }}</td>
-                        <td class="px-4 py-2">
-                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium
-                                {% if j.status == 'complete' %}bg-green-50 text-green-700
-                                {% elif j.status == 'failed' %}bg-red-50 text-red-700
-                                {% else %}bg-blue-50 text-blue-700{% endif %}">
-                                {{ j.status }}
-                            </span>
-                        </td>
-                        <td class="px-4 py-2 text-right font-mono text-xs {% if j.cost == 0 %}text-green-600{% else %}text-amber-600{% endif %}">
-                            {% if j.cost == 0 %}FREE{% else %}${{ "%.3f"|format(j.cost) }}{% endif %}
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-            {% else %}
-            <div class="px-5 py-8 text-center">
-                <p class="text-gray-400 text-sm">No videos yet.</p>
-                <a href="/ugc/create?persona={{ persona.persona_name }}"
-                   class="mt-3 inline-block px-4 py-2 bg-gray-900 text-white text-xs font-medium rounded-lg hover:bg-gray-800">
-                    Generate First Video
-                </a>
-            </div>
-            {% endif %}
-        </div>
-
-        <!-- Cost log -->
-        <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
-            <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-                <h3 class="text-sm font-semibold text-gray-700">Cost Log</h3>
-                <a href="/costs/?persona={{ persona.persona_name }}" class="text-xs text-gray-400 hover:text-gray-700">Full report →</a>
-            </div>
-            {% if costs %}
-            <table class="w-full text-sm">
-                <thead class="bg-gray-50 text-xs text-gray-500 uppercase">
-                    <tr>
-                        <th class="px-4 py-2 text-left">When</th>
-                        <th class="px-4 py-2 text-left">Provider</th>
-                        <th class="px-4 py-2 text-left">Operation</th>
-                        <th class="px-4 py-2 text-right">Cost</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-gray-50">
-                    {% for c in costs[:15] %}
-                    <tr>
-                        <td class="px-4 py-2 text-gray-400 text-xs">{{ c.created_at[:16] if c.created_at else '—' }}</td>
-                        <td class="px-4 py-2">
-                            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs
-                                {% if c.cost_usd == 0 %}bg-green-50 text-green-700{% else %}bg-amber-50 text-amber-700{% endif %}">
-                                {{ c.provider }}
-                            </span>
-                        </td>
-                        <td class="px-4 py-2 text-gray-600 text-xs">{{ c.operation }}</td>
-                        <td class="px-4 py-2 text-right font-mono text-xs {% if c.cost_usd == 0 %}text-green-600{% else %}text-gray-900{% endif %}">
-                            {% if c.cost_usd == 0 %}FREE{% else %}${{ "%.4f"|format(c.cost_usd) }}{% endif %}
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-            {% else %}
-            <p class="px-5 py-6 text-center text-gray-400 text-sm">No cost events yet.</p>
-            {% endif %}
-        </div>
     </div>
 </div>
 {% endblock %}

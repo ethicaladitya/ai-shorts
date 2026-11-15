@@ -50,6 +50,26 @@ async def generate_talking_head(
     if provider in ("replicate", "did"):
         return await _cloud_talking_head(portrait_path, audio_path, output_dir, provider)
 
+    if provider in ("replicate_latentsync", "latentsync", "wav2lip", "syncso"):
+        logger.info("Generating continuous HeyGen-style talking head video via lipsync: %s", provider)
+        output_dir.mkdir(parents=True, exist_ok=True)
+        from app.services.video_renderer import get_audio_duration
+        duration = await get_audio_duration(audio_path)
+
+        silent_video = output_dir / f"silent_{uuid.uuid4().hex[:8]}.mp4"
+        await _still_to_video(portrait_path, silent_video, duration)
+
+        from persona_system.video_engine_adapter.lipsync import apply_lipsync
+        out_path = output_dir / f"talking_head_{uuid.uuid4().hex[:8]}.mp4"
+        try:
+            await apply_lipsync(silent_video, audio_path, out_path, provider=provider)
+            return out_path
+        except Exception as exc:
+            logger.error("Lipsync talking head generation failed: %s", exc)
+            return None
+        finally:
+            silent_video.unlink(missing_ok=True)
+
     # Local SadTalker
     cli = _find_sadtalker_cli()
     if not cli:
@@ -74,7 +94,6 @@ async def _run_sadtalker(
         "--driven_audio", str(audio_path),
         "--source_image", str(portrait_path),
         "--result_dir", str(output_dir),
-        "--still",           # minimal head movement — more realistic for UGC
         "--preprocess", "full",
         "--enhancer", "gfpgan",
     ]
@@ -91,7 +110,6 @@ async def _run_sadtalker(
         logger.error("SadTalker failed (rc=%d): %s", proc.returncode, stderr.decode()[:500])
         return None
 
-    # SadTalker writes to result_dir — find the output MP4
     mp4_files = sorted(output_dir.glob("*.mp4"))
     if not mp4_files:
         logger.warning("SadTalker completed but no MP4 found in %s", output_dir)
@@ -109,41 +127,48 @@ async def _cloud_talking_head(
     """D-ID or Replicate SadTalker as paid fallback."""
     try:
         if provider == "replicate":
-            from app.services.replicate_avatar_provider import ReplicateAvatarProvider
-            prov = ReplicateAvatarProvider()
-            # Replicate provider expects URL or base64; we pass the local path and let it handle upload
-            output_url = await prov.generate(
-                face_image_path=str(portrait_path),
-                audio_path=str(audio_path),
-                script="",
+            from app.services.replicate_avatar_provider import generate_avatar_video
+            out_path = output_dir / f"talking_head_{uuid.uuid4().hex[:8]}.mp4"
+            await generate_avatar_video(
+                image_path=portrait_path,
+                audio_path=audio_path,
+                output_path=out_path,
+                api_key=settings.replicate_api_key,
+                model_version=settings.replicate_sadtalker_version,
             )
-            if output_url:
-                import httpx
-                out_path = output_dir / f"talking_head_{uuid.uuid4().hex[:8]}.mp4"
-                async with httpx.AsyncClient(timeout=120.0) as client:
-                    resp = await client.get(output_url)
-                    resp.raise_for_status()
-                    out_path.write_bytes(resp.content)
-                return out_path
+            return out_path
 
         elif provider == "did":
-            from app.services.d_id_provider import DIDProvider
-            prov = DIDProvider()
-            video_url = await prov.create_talk(
-                face_image_url=str(portrait_path),
-                voice_file=str(audio_path),
-                script="",
-            )
-            if video_url:
-                import httpx
-                out_path = output_dir / f"talking_head_{uuid.uuid4().hex[:8]}.mp4"
-                async with httpx.AsyncClient(timeout=120.0) as client:
-                    resp = await client.get(video_url)
-                    resp.raise_for_status()
-                    out_path.write_bytes(resp.content)
-                return out_path
+            from app.services.d_id_provider import upload_image, upload_audio, create_talk, wait_for_talk, download_video
+            image_url = await upload_image(portrait_path, settings.did_api_key)
+            audio_url = await upload_audio(audio_path, settings.did_api_key)
+            talk_id = await create_talk(image_url, audio_url, settings.did_api_key)
+            result_url = await wait_for_talk(talk_id, settings.did_api_key)
+            out_path = output_dir / f"talking_head_{uuid.uuid4().hex[:8]}.mp4"
+            await download_video(result_url, out_path)
+            return out_path
 
     except Exception as exc:
         logger.error("Cloud talking head (%s) failed: %s — falling back to slideshow", provider, exc)
 
     return None
+
+
+async def _still_to_video(image_path: Path, output_path: Path, duration: float) -> None:
+    """Convert a still image to a silent video (for lipsync input)."""
+    from app.services.video_renderer import FFMPEG
+    cmd = [
+        FFMPEG, "-y",
+        "-loop", "1", "-i", str(image_path),
+        "-t", str(duration),
+        "-vf", "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1,fps=25",
+        "-c:v", "libx264", "-preset", "veryfast", "-crf", "18",
+        "-pix_fmt", "yuv420p",
+        "-an", str(output_path),
+    ]
+    proc = await asyncio.create_subprocess_exec(
+        *cmd, stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.PIPE
+    )
+    _, stderr = await proc.communicate()
+    if proc.returncode != 0:
+        raise RuntimeError(f"still_to_video failed: {stderr.decode()[:300]}")

@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Persona System Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#09090b;--surface:#18181b;--border:#27272a;--accent:#a855f7;
+  --accent2:#ec4899;--text:#fafafa;--muted:#71717a;--green:#22c55e;
+  --red:#ef4444;--yellow:#eab308;
+}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+header{display:flex;align-items:center;gap:12px;padding:18px 28px;border-bottom:1px solid var(--border);background:var(--surface)}
+header h1{font-size:1.1rem;font-weight:600;background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.badge{font-size:.65rem;padding:2px 8px;border-radius:999px;background:#27272a;color:var(--muted);font-weight:500}
+nav{display:flex;gap:4px;padding:0 28px;border-bottom:1px solid var(--border);background:var(--surface)}
+nav button{background:none;border:none;color:var(--muted);padding:12px 14px;cursor:pointer;font-size:.8rem;font-weight:500;border-bottom:2px solid transparent;transition:.2s}
+nav button.active{color:var(--text);border-bottom-color:var(--accent)}
+nav button:hover{color:var(--text)}
+main{padding:28px;max-width:1200px;margin:0 auto}
+.grid{display:grid;gap:16px}
+.g2{grid-template-columns:repeat(2,1fr)}
+.g3{grid-template-columns:repeat(3,1fr)}
+.g4{grid-template-columns:repeat(4,1fr)}
+@media(max-width:768px){.g2,.g3,.g4{grid-template-columns:1fr}}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px}
+.card h2{font-size:.75rem;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px}
+.stat{font-size:2rem;font-weight:700}
+.stat.accent{background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.section{display:none}.section.active{display:block}
+h3{font-size:1rem;font-weight:600;margin-bottom:16px}
+table{width:100%;border-collapse:collapse;font-size:.82rem}
+th{text-align:left;padding:8px 12px;color:var(--muted);font-weight:500;border-bottom:1px solid var(--border)}
+td{padding:10px 12px;border-bottom:1px solid #1f1f23}
+tr:hover td{background:#1f1f23}
+.pill{display:inline-block;padding:2px 10px;border-radius:999px;font-size:.7rem;font-weight:600}
+.pill.approved{background:#14532d;color:#86efac}
+.pill.scheduled{background:#1e3a5f;color:#93c5fd}
+.pill.published{background:#3b0764;color:#d8b4fe}
+.pill.draft{background:#292524;color:#a8a29e}
+.pill.failed{background:#450a0a;color:#fca5a5}
+.pill.cold{background:#1c1917;color:var(--muted)}
+.pill.warm{background:#431407;color:#fdba74}
+.pill.high_value{background:#14532d;color:#86efac}
+btn,button.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:8px;border:none;cursor:pointer;font-size:.82rem;font-weight:500;transition:.15s}
+.btn-primary{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff}
+.btn-primary:hover{opacity:.85}
+.btn-ghost{background:#27272a;color:var(--text)}.btn-ghost:hover{background:#3f3f46}
+.btn-sm{padding:5px 12px;font-size:.75rem}
+form.inline{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px;align-items:flex-end}
+input,select,textarea{background:#27272a;border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 12px;font-size:.82rem;font-family:inherit;outline:none}
+input:focus,select:focus,textarea:focus{border-color:var(--accent)}
+label{font-size:.75rem;color:var(--muted);display:block;margin-bottom:4px}
+.field{display:flex;flex-direction:column;gap:2px}
+.toast{position:fixed;bottom:24px;right:24px;background:#27272a;border:1px solid var(--border);border-radius:10px;padding:12px 20px;font-size:.82rem;display:none;z-index:999;animation:fadeUp .3s ease}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.score-bar{height:6px;border-radius:3px;background:#27272a;overflow:hidden;margin-top:4px}
+.score-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--accent),var(--accent2))}
+.empty{color:var(--muted);text-align:center;padding:40px 0;font-size:.85rem}
+.tag{display:inline-block;background:#27272a;color:var(--muted);padding:2px 8px;border-radius:4px;font-size:.7rem;margin:2px}
+.dm-variants{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+.dm-variant{background:#27272a;border-radius:8px;padding:10px;font-size:.8rem;cursor:pointer;border:2px solid transparent;transition:.15s}
+.dm-variant:hover{border-color:var(--accent)}
+.dm-variant.selected{border-color:var(--accent);background:#1e1b4b}
+.spinner{width:20px;height:20px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;display:inline-block}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<header>
+  <h1>✦ Persona System</h1>
+  <span class="badge">v1.0</span>
+  <span id="health-dot" style="margin-left:auto;width:8px;height:8px;border-radius:50%;background:var(--muted)"></span>
+</header>
+<nav>
+  <button class="active" onclick="showSection('overview',this)">Overview</button>
+  <button onclick="showSection('content',this)">Content</button>
+  <button onclick="showSection('schedule',this)">Schedule</button>
+  <button onclick="showSection('dms',this)">DMs</button>
+  <button onclick="showSection('analytics',this)">Analytics</button>
+  <button onclick="showSection('pipeline',this)">Pipeline</button>
+</nav>
+<main>
+
+<!-- OVERVIEW -->
+<div id="overview" class="section active">
+  <div class="grid g4" style="margin-bottom:24px">
+    <div class="card"><h2>Content Pieces</h2><div class="stat accent" id="s-content">—</div></div>
+    <div class="card"><h2>Scheduled Posts</h2><div class="stat" id="s-scheduled">—</div></div>
+    <div class="card"><h2>Published</h2><div class="stat" id="s-published">—</div></div>
+    <div class="card"><h2>Pending DMs</h2><div class="stat" id="s-dms">—</div></div>
+  </div>
+  <div class="grid g2">
+    <div class="card"><h2>Images Generated</h2><div class="stat" id="s-images">—</div></div>
+    <div class="card"><h2>Avg Performance Score</h2><div class="stat accent" id="s-score">—</div></div>
+  </div>
+</div>
+
+<!-- CONTENT -->
+<div id="content" class="section">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+    <h3>Content Pieces</h3>
+    <button class="btn btn-ghost btn-sm" onclick="loadContent()">↻ Refresh</button>
+  </div>
+  <form class="inline" onsubmit="return false">
+    <div class="field"><label>Persona</label><input id="c-persona" value="default" style="width:120px"/></div>
+    <div class="field"><label>Status</label>
+      <select id="c-status">
+        <option value="">All</option>
+        <option>draft</option><option>approved</option><option>scheduled</option><option>published</option>
+      </select>
+    </div>
+    <button class="btn btn-primary btn-sm" onclick="loadContent()">Filter</button>
+    <button class="btn btn-ghost btn-sm" onclick="approveSelected()">✓ Approve Selected</button>
+  </form>
+  <div class="card" style="padding:0;overflow:auto">
+    <table id="content-table">
+      <thead><tr><th><input type="checkbox" id="select-all" onchange="toggleAll(this)"/></th><th>Caption</th><th>Pillar</th><th>Score</th><th>Video</th><th>Status</th><th>Scheduled</th></tr></thead>
+      <tbody id="content-body"><tr><td colspan="7" class="empty">Loading...</td></tr></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- SCHEDULE -->
+<div id="schedule" class="section">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+    <h3>Upcoming Posts</h3>
+    <button class="btn btn-ghost btn-sm" onclick="loadSchedule()">↻ Refresh</button>
+  </div>
+  <div id="schedule-list" class="card"><div class="empty">Loading...</div></div>
+</div>
+
+<!-- DMs -->
+<div id="dms" class="section">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+    <h3>DM Inbox</h3>
+    <button class="btn btn-ghost btn-sm" onclick="loadDMs()">↻ Refresh</button>
+  </div>
+  <div id="dm-list"></div>
+</div>
+
+<!-- ANALYTICS -->
+<div id="analytics" class="section">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+    <h3>Performance Analytics</h3>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-ghost btn-sm" onclick="loadAnalytics()">↻ Refresh</button>
+      <button class="btn btn-ghost btn-sm" onclick="loadFeedback()">✦ AI Feedback</button>
+    </div>
+  </div>
+  <div class="card" style="padding:0;overflow:auto;margin-bottom:16px">
+    <table>
+      <thead><tr><th>Platform</th><th>Views</th><th>Likes</th><th>Comments</th><th>Saves</th><th>ER</th><th>Score</th><th>Date</th></tr></thead>
+      <tbody id="analytics-body"><tr><td colspan="8" class="empty">Loading...</td></tr></tbody>
+    </table>
+  </div>
+  <div id="feedback-card" class="card" style="display:none">
+    <h3 style="margin-bottom:12px">✦ AI Feedback Loop</h3>
+    <div id="feedback-content"></div>
+  </div>
+</div>
+
+<!-- PIPELINE -->
+<div id="pipeline" class="section">
+  <h3 style="margin-bottom:16px">Run Content Pipeline</h3>
+  <div class="card" style="max-width:500px">
+    <form onsubmit="runPipeline(event)">
+      <div class="grid" style="gap:14px">
+        <div class="field"><label>Persona</label><input id="p-persona" value="default"/></div>
+        <div class="field"><label>Content Pillar (optional)</label><input id="p-pillar" placeholder="late night energy"/></div>
+        <div class="grid g2" style="gap:14px">
+          <div class="field"><label>Captions to generate</label><input id="p-captions" type="number" value="20"/></div>
+          <div class="field"><label>Top scripts to process</label><input id="p-scripts" type="number" value="3"/></div>
+        </div>
+        <div class="grid g2" style="gap:14px">
+          <div class="field"><label>Images to generate</label><input id="p-images" type="number" value="5"/></div>
+          <div class="field"><label>Video type</label>
+            <select id="p-vtype"><option value="loop">Loop (fast, cheap)</option><option value="talking">Talking (lipsync)</option></select>
+          </div>
+        </div>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+          <input type="checkbox" id="p-noimages"/> Skip image generation
+        </label>
+        <button type="submit" class="btn btn-primary" id="run-btn">▶ Run Pipeline</button>
+        <div id="pipeline-status" style="display:none;color:var(--green);font-size:.82rem"></div>
+      </div>
+    </form>
+  </div>
+  <div style="margin-top:24px;max-width:500px">
+    <div class="card">
+      <h3 style="margin-bottom:12px">Quick Actions</h3>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <button class="btn btn-ghost" onclick="triggerPublish()">📤 Publish Due Posts Now</button>
+        <button class="btn btn-ghost" onclick="scoreText()">🎯 Score Content</button>
+      </div>
+    </div>
+  </div>
+  <div id="score-box" style="display:none;margin-top:16px;max-width:500px">
+    <div class="card">
+      <h3 style="margin-bottom:12px">Score Content</h3>
+      <div class="field" style="margin-bottom:10px"><label>Caption or Script</label>
+        <textarea id="score-input" rows="4" style="width:100%"></textarea>
+      </div>
+      <div style="display:flex;gap:8px">
+        <select id="score-type"><option>caption</option><option>script</option></select>
+        <button class="btn btn-primary btn-sm" onclick="submitScore()">Score</button>
+      </div>
+      <div id="score-result" style="margin-top:12px;display:none"></div>
+    </div>
+  </div>
+</div>
+
+</main>
+<div class="toast" id="toast"></div>
+
+<script>
+const API = '';
+
+function showSection(id, btn) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  btn.classList.add('active');
+  if (id === 'overview') loadDashboard();
+  if (id === 'content') loadContent();
+  if (id === 'schedule') loadSchedule();
+  if (id === 'dms') loadDMs();
+  if (id === 'analytics') loadAnalytics();
+}
+
+function toast(msg, ok=true) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.display = 'block';
+  t.style.borderColor = ok ? 'var(--green)' : 'var(--red)';
+  setTimeout(() => t.style.display = 'none', 3000);
+}
+
+async function api(path, opts={}) {
+  const r = await fetch(API + path, opts);
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+// ── Dashboard ──
+async function loadDashboard() {
+  try {
+    const d = await api('/api/dashboard');
+    document.getElementById('s-content').textContent = d.total_content_pieces;
+    document.getElementById('s-scheduled').textContent = d.scheduled_posts;
+    document.getElementById('s-published').textContent = d.published_posts;
+    document.getElementById('s-dms').textContent = d.pending_dm_replies;
+    document.getElementById('s-images').textContent = d.total_images;
+    document.getElementById('s-score').textContent = (d.avg_performance_score * 100).toFixed(1) + '%';
+    document.getElementById('health-dot').style.background = 'var(--green)';
+  } catch(e) {
+    document.getElementById('health-dot').style.background = 'var(--red)';
+  }
+}
+
+// ── Content ──
+async function loadContent() {
+  const persona = document.getElementById('c-persona').value;
+  const status = document.getElementById('c-status').value;
+  const url = `/api/content?persona=${persona}${status ? '&status='+status : ''}`;
+  try {
+    const items = await api(url);
+    const tbody = document.getElementById('content-body');
+    if (!items.length) { tbody.innerHTML = '<tr><td colspan="7" class="empty">No content found</td></tr>'; return; }
+    tbody.innerHTML = items.map(c => `
+      <tr>
+        <td><input type="checkbox" class="row-check" value="${c.id}"/></td>
+        <td style="max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.caption||'—'}</td>
+        <td>${c.pillar ? `<span class="tag">${c.pillar}</span>` : '—'}</td>
+        <td>
+          <div style="font-size:.8rem">${((c.combined_score||0)*100).toFixed(0)}%</div>
+          <div class="score-bar"><div class="score-fill" style="width:${(c.combined_score||0)*100}%"></div></div>
+        </td>
+        <td>${c.video_file ? '✅' : '—'}</td>
+        <td><span class="pill ${c.status}">${c.status}</span></td>
+        <td style="font-size:.75rem;color:var(--muted)">${c.scheduled_at ? c.scheduled_at.slice(0,16).replace('T',' ') : '—'}</td>
+      </tr>`).join('');
+  } catch(e) { toast('Failed to load content', false); }
+}
+
+function toggleAll(cb) { document.querySelectorAll('.row-check').forEach(c => c.checked = cb.checked); }
+
+async function approveSelected() {
+  const ids = [...document.querySelectorAll('.row-check:checked')].map(c => parseInt(c.value));
+  if (!ids.length) { toast('Select content first', false); return; }
+  try {
+    await api('/api/content/approve', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({content_ids:ids})});
+    toast(`Approved ${ids.length} items`);
+    loadContent();
+  } catch(e) { toast('Approve failed', false); }
+}
+
+// ── Schedule ──
+async function loadSchedule() {
+  try {
+    const posts = await api('/api/schedule?days=14');
+    const el = document.getElementById('schedule-list');
+    if (!posts.length) { el.innerHTML = '<div class="empty">No upcoming posts</div>'; return; }
+    el.innerHTML = `<table><thead><tr><th>Platform</th><th>Persona</th><th>Scheduled</th><th>Status</th></tr></thead><tbody>
+      ${posts.map(p => `<tr>
+        <td>${p.platform||'—'}</td>
+        <td>${p.persona||'—'}</td>
+        <td style="font-size:.75rem">${p.scheduled_at ? p.scheduled_at.slice(0,16).replace('T',' ') : '—'}</td>
+        <td><span class="pill ${p.status}">${p.status}</span></td>
+      </tr>`).join('')}
+    </tbody></table>`;
+  } catch(e) { toast('Failed to load schedule', false); }
+}
+
+// ── DMs ──
+async function loadDMs() {
+  try {
+    const threads = await api('/api/dms?persona=default');
+    const el = document.getElementById('dm-list');
+    if (!threads.length) { el.innerHTML = '<div class="card"><div class="empty">No pending DMs</div></div>'; return; }
+    el.innerHTML = threads.map(t => {
+      let variants = [];
+      try { variants = JSON.parse(t.reply_text || '[]'); } catch{}
+      const isArr = Array.isArray(variants);
+      return `<div class="card" style="margin-bottom:12px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
+          <div>
+            <strong>${t.fan_username}</strong>
+            <span class="pill ${t.category}" style="margin-left:8px">${t.category}</span>
+            ${t.auto_replied ? '<span class="pill scheduled" style="margin-left:4px">auto-replied</span>' : ''}
+          </div>
+          <span style="font-size:.7rem;color:var(--muted)">${t.last_message_at ? t.last_message_at.slice(0,16).replace('T',' ') : ''}</span>
+        </div>
+        <div style="background:#27272a;border-radius:8px;padding:10px;font-size:.82rem;margin-bottom:10px">${t.last_message||''}</div>
+        ${isArr && variants.length > 1 ? `
+          <div style="font-size:.72rem;color:var(--muted);margin-bottom:6px">Choose a reply variant:</div>
+          <div class="dm-variants">
+            ${variants.map((v,i) => `<div class="dm-variant" onclick="selectVariant(this,${t.id},${i})">${v}</div>`).join('')}
+          </div>` : (t.reply_text && !isArr ? `<div style="font-size:.82rem;color:var(--muted)">${t.reply_text}</div>` : '')}
+      </div>`;
+    }).join('');
+  } catch(e) { toast('Failed to load DMs', false); }
+}
+
+async function selectVariant(el, threadId, idx) {
+  document.querySelectorAll('.dm-variant').forEach(v => v.classList.remove('selected'));
+  el.classList.add('selected');
+  try {
+    await api(`/api/dms/${threadId}/approve`, {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({variant_index:idx})});
+    toast('Reply approved & queued');
+  } catch(e) { toast('Approval failed', false); }
+}
+
+// ── Analytics ──
+async function loadAnalytics() {
+  try {
+    const rows = await api('/api/analytics?persona=default');
+    const tbody = document.getElementById('analytics-body');
+    if (!rows.length) { tbody.innerHTML = '<tr><td colspan="8" class="empty">No analytics data yet</td></tr>'; return; }
+    tbody.innerHTML = rows.map(r => `<tr>
+      <td>${r.platform||'—'}</td>
+      <td>${(r.views||0).toLocaleString()}</td>
+      <td>${(r.likes||0).toLocaleString()}</td>
+      <td>${(r.comments||0).toLocaleString()}</td>
+      <td>${(r.saves||0).toLocaleString()}</td>
+      <td>${((r.engagement_rate||0)*100).toFixed(2)}%</td>
+      <td>
+        <div>${((r.performance_score||0)*100).toFixed(0)}%</div>
+        <div class="score-bar"><div class="score-fill" style="width:${(r.performance_score||0)*100}%"></div></div>
+      </td>
+      <td style="font-size:.72rem;color:var(--muted)">${r.fetched_at ? r.fetched_at.slice(0,10) : '—'}</td>
+    </tr>`).join('');
+  } catch(e) { toast('Analytics load failed', false); }
+}
+
+async function loadFeedback() {
+  const card = document.getElementById('feedback-card');
+  const content = document.getElementById('feedback-content');
+  card.style.display = 'block';
+  content.innerHTML = '<div class="spinner"></div>';
+  try {
+    const d = await api('/api/analytics/feedback?persona=default');
+    if (d.status === 'no_data') { content.innerHTML = '<p style="color:var(--muted)">Not enough data yet. Publish more content first.</p>'; return; }
+    content.innerHTML = (d.suggestions||[]).map(s => `
+      <div style="background:#27272a;border-radius:8px;padding:12px;margin-bottom:8px">
+        <div style="font-size:.7rem;color:var(--accent);font-weight:600;text-transform:uppercase;margin-bottom:4px">${s.area}</div>
+        <div style="font-size:.82rem">${s.suggestion}</div>
+      </div>`).join('') || '<p style="color:var(--muted)">No suggestions generated.</p>';
+  } catch(e) { content.innerHTML = '<p style="color:var(--red)">Failed to load feedback.</p>'; }
+}
+
+// ── Pipeline ──
+async function runPipeline(e) {
+  e.preventDefault();
+  const btn = document.getElementById('run-btn');
+  const status = document.getElementById('pipeline-status');
+  btn.innerHTML = '<div class="spinner"></div> Running...';
+  btn.disabled = true;
+  status.style.display = 'none';
+  try {
+    await api('/api/pipeline/run', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        persona: document.getElementById('p-persona').value,
+        pillar: document.getElementById('p-pillar').value || null,
+        captions_count: parseInt(document.getElementById('p-captions').value),
+        scripts_count: parseInt(document.getElementById('p-scripts').value),
+        image_count: parseInt(document.getElementById('p-images').value),
+        generate_images: !document.getElementById('p-noimages').checked,
+        video_type: document.getElementById('p-vtype').value,
+      })
+    });
+    status.textContent = '✓ Pipeline started in background. Check content tab in a few minutes.';
+    status.style.display = 'block';
+    toast('Pipeline started!');
+  } catch(e) { toast('Pipeline failed to start: ' + e.message, false); }
+  btn.innerHTML = '▶ Run Pipeline';
+  btn.disabled = false;
+}
+
+async function triggerPublish() {
+  try {
+    await api('/api/publish/run', {method:'POST'});
+    toast('Publisher triggered — check schedule tab');
+  } catch(e) { toast('Publisher failed', false); }
+}
+
+function scoreText() {
+  const box = document.getElementById('score-box');
+  box.style.display = box.style.display === 'none' ? 'block' : 'none';
+}
+
+async function submitScore() {
+  const text = document.getElementById('score-input').value;
+  const type = document.getElementById('score-type').value;
+  if (!text) { toast('Enter some text to score', false); return; }
+  try {
+    const r = await api('/api/score', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text,content_type:type})});
+    const res = document.getElementById('score-result');
+    res.style.display = 'block';
+    res.innerHTML = `
+      <div style="font-size:1.8rem;font-weight:700;background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent">${((r.score||0)*100).toFixed(0)}%</div>
+      <div style="color:var(--muted);font-size:.8rem;margin-top:4px">${r.reason||''}</div>`;
+  } catch(e) { toast('Scoring failed', false); }
+}
+
+// Init
+loadDashboard();
+setInterval(loadDashboard, 30000);
+</script>
+</body>
+</html>

@@ -16,9 +16,12 @@ from app.routers.ugc import router as ugc_router
 from app.routers.costs import router as costs_router
 from app.routers.personas import router as personas_router
 from app.routers.dms import router as dms_router
+from app.routers.billing import router as billing_router
+from app.routers.faceless import router as faceless_router
 from app.models import KnowledgeEntry
 import importlib.util
 from app.routers.auth import router as auth_router
+from app.routers.admin import router as admin_router
 from app.middleware.auth import AuthMiddleware
 
 # Logging
@@ -34,8 +37,7 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(title=settings.app_name, docs_url="/api/docs", redoc_url=None)
 
-# In Starlette, middlewares execute in REVERSE registration order (LIFO).
-# SessionMiddleware must be added LAST so it runs FIRST (before AuthMiddleware reads request.session).
+# Middleware (LIFO order — SessionMiddleware added last, runs first)
 app.add_middleware(AuthMiddleware)
 app.add_middleware(SessionMiddleware, secret_key=settings.secret_key, max_age=60 * 60 * 24 * 30)
 
@@ -44,18 +46,28 @@ static_dir = Path(__file__).parent / "static"
 static_dir.mkdir(exist_ok=True)
 app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
-# Serve output files
 output_dir = settings.output_dir
 output_dir.mkdir(parents=True, exist_ok=True)
 app.mount("/output", StaticFiles(directory=str(output_dir)), name="output")
 
-# Serve uploaded face images
 faces_dir = settings.data_dir / "faces"
 faces_dir.mkdir(parents=True, exist_ok=True)
 app.mount("/faces", StaticFiles(directory=str(faces_dir)), name="faces")
 
+temp_preview_dir = settings.temp_dir
+temp_preview_dir.mkdir(parents=True, exist_ok=True)
+app.mount("/temp", StaticFiles(directory=str(temp_preview_dir)), name="temp")
+
+# Serve persona avatars
+personas_media_dir = settings.data_dir / "personas"
+personas_media_dir.mkdir(parents=True, exist_ok=True)
+app.mount("/persona_avatars", StaticFiles(directory=str(personas_media_dir)), name="persona_avatars")
+
 # Routers
 app.include_router(auth_router)
+app.include_router(admin_router)
+app.include_router(billing_router)
+app.include_router(faceless_router)
 app.include_router(dashboard.router)
 app.include_router(videos.router)
 app.include_router(scripts.router)
@@ -67,9 +79,13 @@ app.include_router(ugc_router)
 app.include_router(costs_router)
 app.include_router(personas_router)
 app.include_router(dms_router)
-app.mount("/persona_media", StaticFiles(directory="data/persona_media"), name="persona_media")
 
-# ── Persona System — mounted at /persona/ ──────────────────────────────────
+try:
+    app.mount("/persona_media", StaticFiles(directory="data/persona_media"), name="persona_media")
+except Exception:
+    pass
+
+# Persona System (optional sub-app)
 try:
     from persona_system.dashboard.api import app as persona_app
     app.mount("/persona", persona_app)
@@ -78,24 +94,19 @@ except Exception as _pe:
     logger.warning("Persona System not available: %s", _pe)
 
 
-
-
 def seed_knowledge_from_script(db):
-    # Dynamically import SEEDS from seed_knowledge.py
-    import os
-    import sys
+    import os, sys
     seed_path = os.path.join(os.path.dirname(__file__), "..", "seed_knowledge.py")
     spec = importlib.util.spec_from_file_location("seed_knowledge", seed_path)
     seed_mod = importlib.util.module_from_spec(spec)
     sys.modules["seed_knowledge"] = seed_mod
     spec.loader.exec_module(seed_mod)
     SEEDS = getattr(seed_mod, "SEEDS", [])
-
-    # Remove all existing entries and re-seed
     db.query(KnowledgeEntry).delete()
     for entry in SEEDS:
         db.add(KnowledgeEntry(**entry))
     db.commit()
+
 
 @app.on_event("startup")
 async def startup():
@@ -105,40 +116,96 @@ async def startup():
     logger.info("Initializing database...")
     init_db()
 
-    # Recover stale PROCESSING jobs — any job still PROCESSING at startup was
-    # orphaned by a previous restart and will never finish on its own.
-    db = next(get_db())
-    stale = db.query(RenderJob).filter(RenderJob.status == RenderJobStatus.PROCESSING).all()
-    if stale:
-        for job in stale:
-            logger.warning(f"Recovering stale job {job.id} (was PROCESSING at startup)")
-            job.status = RenderJobStatus.FAILED
-            job.step = "failed"
-            job.error_message = "Orphaned — worker killed mid-run, pipeline not completed"
-        db.commit()
-        logger.info(f"Marked {len(stale)} stale job(s) as FAILED")
+    # SQLite column migrations
+    import sqlalchemy as sa
+    from app.database import engine as _engine
+    migrations = [
+        ("avatar_jobs",    "voice_provider",  "VARCHAR(100) DEFAULT ''"),
+        ("avatar_jobs",    "persona_id",       "INTEGER"),
+        ("ugc_jobs",       "persona_id",       "INTEGER"),
+        ("users",          "credits",          "INTEGER DEFAULT 0"),
+        ("cost_log",       "user_email",       "VARCHAR(300)"),
+        ("persona_accounts", "personality",    "TEXT"),
+        ("persona_accounts", "avatar_style",   "VARCHAR(50) DEFAULT 'photo'"),
+        ("persona_accounts", "tiktok_token_env","VARCHAR(200)"),
+        # UGC extended brief fields
+        ("ugc_jobs", "product_name",        "VARCHAR(300)"),
+        ("ugc_jobs", "product_description", "TEXT"),
+        ("ugc_jobs", "product_url",         "VARCHAR(500)"),
+        ("ugc_jobs", "creator_name",        "VARCHAR(200)"),
+        ("ugc_jobs", "creator_instagram",   "VARCHAR(100)"),
+        ("ugc_jobs", "creator_tiktok",      "VARCHAR(100)"),
+        ("ugc_jobs", "creator_location",    "VARCHAR(200)"),
+        ("ugc_jobs", "creator_languages",   "VARCHAR(200)"),
+        ("ugc_jobs", "creator_age_range",   "VARCHAR(20)"),
+        ("ugc_jobs", "video_purpose",       "VARCHAR(50)"),
+        ("ugc_jobs", "main_goal",           "VARCHAR(50)"),
+        ("ugc_jobs", "target_audience",     "VARCHAR(300)"),
+        ("ugc_jobs", "cta_text",            "VARCHAR(200)"),
+        ("ugc_jobs", "hook_style",          "VARCHAR(50)"),
+        ("ugc_jobs", "tone",                "VARCHAR(50)"),
+        ("ugc_jobs", "script_language",     "VARCHAR(20) DEFAULT 'en'"),
+        ("ugc_jobs", "script_notes",        "TEXT"),
+        ("ugc_jobs", "brand_guidelines",    "TEXT"),
+        ("ugc_jobs", "example_videos",      "TEXT"),
+        ("ugc_jobs", "key_phrases",         "TEXT"),
+        ("ugc_jobs", "structure_flags",     "TEXT"),
+        ("ugc_jobs", "style_flags",         "TEXT"),
+    ]
+    with _engine.connect() as _conn:
+        for _tbl, _col, _def in migrations:
+            try:
+                _conn.execute(sa.text(f"ALTER TABLE {_tbl} ADD COLUMN {_col} {_def}"))
+                _conn.commit()
+                logger.info("Migration: added %s.%s", _tbl, _col)
+            except Exception:
+                pass  # column already exists
 
-    # Recover stale UGC jobs
+    # Ensure super admin exists
+    from app.models import User, UserPermissions
+    db = next(get_db())
+    sa_email = settings.super_admin_email.lower()
+    sa_user = db.query(User).filter(User.email == sa_email).first()
+    if not sa_user:
+        sa_user = User(email=sa_email, name="Super Admin", is_active=True, credits=9999)
+        db.add(sa_user)
+        db.flush()
+        db.add(UserPermissions(
+            user_email=sa_email,
+            can_create_video=True, can_knowledge=True, can_avatar_video=True,
+            can_ugc_video=True, can_personas=True, can_dms=True,
+            can_costs=True, can_queue=True, can_settings=True,
+        ))
+        db.commit()
+        logger.info("Super admin created: %s", sa_email)
+    elif sa_user.credits is None:
+        sa_user.credits = 9999
+        db.commit()
+
+    # Recover stale jobs
+    from app.models import RenderJob, RenderJobStatus
+    db2 = next(get_db())
+    stale = db2.query(RenderJob).filter(RenderJob.status == RenderJobStatus.PROCESSING).all()
+    for job in stale:
+        job.status = RenderJobStatus.FAILED
+        job.error_message = "Orphaned at startup"
     from app.models import UGCJob, UGCJobStatus
-    stale_ugc = db.query(UGCJob).filter(
+    stale_ugc = db2.query(UGCJob).filter(
         UGCJob.status.notin_([UGCJobStatus.COMPLETE, UGCJobStatus.FAILED, UGCJobStatus.PENDING])
     ).all()
-    if stale_ugc:
-        for job in stale_ugc:
-            job.status = UGCJobStatus.FAILED
-            job.error_message = "Orphaned — server restarted mid-pipeline"
-        db.commit()
-        logger.info(f"Recovered {len(stale_ugc)} stale UGC job(s)")
+    for job in stale_ugc:
+        job.status = UGCJobStatus.FAILED
+        job.error_message = "Orphaned — server restarted"
+    if stale or stale_ugc:
+        db2.commit()
+    db2.close()
 
-    # Seed knowledge from script on every startup
     seed_knowledge_from_script(db)
     db.close()
 
-    logger.info(f"AI Provider: {settings.ai_provider}")
-    logger.info(f"Voice Provider: {settings.voice_provider}")
-    logger.info(f"Azure Endpoint: {settings.azure_openai_endpoint[:30]}..." if settings.azure_openai_endpoint else "Azure: Not configured")
+    logger.info("AI Provider: %s", settings.ai_provider)
+    logger.info("Voice Provider: %s", settings.voice_provider)
 
-    # Pre-warm the Whisper model so first pipeline run doesn't hang downloading it.
     async def _warmup_whisper():
         try:
             from app.services.subtitle_generator import _get_model
@@ -146,18 +213,17 @@ async def startup():
             await loop.run_in_executor(None, lambda: _get_model("base"))
             logger.info("Whisper 'base' model ready.")
         except Exception as exc:
-            logger.warning(f"Whisper warmup failed (subtitles may be slow on first run): {exc}")
+            logger.warning("Whisper warmup failed: %s", exc)
 
     asyncio.create_task(_warmup_whisper())
     logger.info("AI Shorts System ready.")
 
-    # ── Mount Persona System ──────────────────────────────────────────────
     try:
         from persona_system.shared.database import init_db as persona_init_db
         persona_init_db()
         logger.info("Persona System DB initialised.")
     except Exception as e:
-        logger.warning("Persona System DB init failed (non-fatal): %s", e)
+        logger.warning("Persona System DB init failed: %s", e)
 
 
 @app.get("/health")
@@ -166,5 +232,4 @@ async def health():
         "status": "ok",
         "ai_provider": settings.ai_provider,
         "voice_provider": settings.voice_provider,
-        "azure_configured": bool(settings.azure_openai_endpoint and settings.azure_openai_api_key),
     }

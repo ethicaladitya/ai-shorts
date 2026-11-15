@@ -14,11 +14,27 @@ from app.config import settings
 from app.services.ugc.realism.image_prompts import (
     build_ugc_negative,
     build_ugc_positive,
+    build_ugc_positive_from_spec,
     get_scene_contexts,
 )
 from app.services.ugc.utils.retry import async_retry
 
 logger = logging.getLogger(__name__)
+
+
+async def unload_a1111_model() -> None:
+    """Request A1111 to unload the current checkpoint from memory to free VRAM."""
+    if not settings.sd_base_url:
+        return
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.post(f"{settings.sd_base_url}/sdapi/v1/unload-checkpoint")
+            if resp.status_code == 200:
+                logger.info("Successfully requested A1111 to unload checkpoint")
+            else:
+                logger.warning("A1111 unload checkpoint returned status %d: %s", resp.status_code, resp.text)
+    except Exception as e:
+        logger.warning("Failed to request A1111 model unload: %s", e)
 
 
 # ── A1111 provider ─────────────────────────────────────────────────────────────
@@ -28,13 +44,15 @@ async def _a1111_txt2img(positive: str, negative: str, width: int, height: int, 
     payload = {
         "prompt": positive,
         "negative_prompt": negative,
-        "steps": 25,
-        "cfg_scale": 7.0,
+        "steps": 30,          # 30 > 25: better detail without major slowdown
+        "cfg_scale": 6.5,     # 6.5: more natural/less AI-rigid than 7.0
         "width": width,
         "height": height,
         "seed": seed,
         "sampler_name": "DPM++ 2M Karras",
         "restore_faces": True,
+        "tiling": False,
+        "enable_hr": False,   # no hires fix — we're at full 1080x1920 already
         "send_images": True,
         "save_images": False,
     }
@@ -178,7 +196,8 @@ async def generate_scene_images(
             if png_bytes is None:
                 try:
                     from persona_system.image_engine.generator import _azure_dalle
-                    png_bytes = await _azure_dalle(positive, width=1024, height=1024)
+                    # Request 1024x1536 portrait — closer to 9:16 than square, less cropping
+                    png_bytes = await _azure_dalle(positive, width=1024, height=1536)
                 except Exception as az_exc:
                     logger.error("Azure GPT-Image-2 also failed: %s", az_exc)
                     raise
@@ -195,5 +214,75 @@ async def generate_scene_images(
 
     if not paths:
         raise RuntimeError(f"All {count} image generations failed")
+
+    if provider not in ("comfyui", "azure_gpt_image"):
+        await unload_a1111_model()
+
+    return paths
+
+
+@async_retry(max_attempts=2, base_delay=5.0)
+async def generate_shot_images(
+    persona: dict,
+    shots: list,  # list[ShotSpec]
+    output_dir: Path,
+    provider: str = "a1111",
+) -> list[Path]:
+    """Generate one image per ShotSpec with shot-specific framing/environment.
+
+    This is the scene-planner-aware version of generate_scene_images.
+    Each shot gets a unique prompt that encodes its framing, environment,
+    emotion, and camera note — producing genuinely varied images.
+    """
+    if output_dir is not None:
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+    width, height = 768, 1024  # 3:4 → cropped to 9:16 in assembler
+    base_seed: int = persona.get("image_gen", {}).get("seed", -1)
+    paths: list[Path] = []
+
+    for shot in shots:
+        positive = build_ugc_positive_from_spec(persona, shot)
+        negative = build_ugc_negative(persona)
+        scene_seed = base_seed + shot.index if base_seed != -1 else -1
+
+        png_bytes: bytes | None = None
+        try:
+            if provider == "comfyui":
+                try:
+                    png_bytes = await _comfyui_generate(positive, negative, width, height, scene_seed)
+                except Exception as exc:
+                    logger.warning("ComfyUI shot %d failed (%s) — fallback", shot.index, exc)
+
+            elif provider != "azure_gpt_image":
+                try:
+                    png_bytes = await _a1111_txt2img(positive, negative, width, height, scene_seed)
+                except (httpx.ConnectError, httpx.ConnectTimeout, httpx.RemoteProtocolError) as exc:
+                    logger.warning("A1111 shot %d not reachable (%s) — fallback", shot.index, exc)
+
+            if png_bytes is None:
+                from persona_system.image_engine.generator import _azure_dalle
+                # Request portrait 1024x1536 — GPT-Image-2 closest to 9:16, less cropping
+                png_bytes = await _azure_dalle(positive, width=1024, height=1536)
+
+            out_path = output_dir / f"shot_{shot.index:02d}_{uuid.uuid4().hex[:6]}.png"
+            out_path.write_bytes(png_bytes)
+            paths.append(out_path)
+            logger.info("Shot image %d/%d (%s) → %s", shot.index + 1, len(shots), shot.shot_type, out_path.name)
+
+        except Exception as exc:
+            logger.error("Shot image %d failed: %s", shot.index, exc)
+            # Use prior image as fallback if we have one
+            if paths:
+                paths.append(paths[-1])
+            # else: skip — assembler will handle missing images
+
+        await asyncio.sleep(0.2)
+
+    if not paths:
+        raise RuntimeError("All shot image generations failed")
+
+    if provider not in ("comfyui", "azure_gpt_image"):
+        await unload_a1111_model()
 
     return paths

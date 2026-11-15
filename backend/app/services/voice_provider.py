@@ -6,6 +6,23 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
+# ── Named Maya voice profiles ─────────────────────────────────────────────────
+# Use as provider name "maya:aditya" or "maya:of_model" anywhere a provider
+# string is accepted. The description is passed as the `voice` argument.
+MAYA_VOICE_PROFILES: dict[str, str] = {
+    "aditya": (
+        "Indian-American male in his mid-20s, Aditya Shah. "
+        "Confident, articulate, natural tech-creator delivery. "
+        "Clear diction, moderate-to-fast pace, warm baritone with genuine enthusiasm. "
+        "Sounds like a knowledgeable friend talking directly to camera."
+    ),
+    "of_model": (
+        "Young American woman in her early 20s. Warm, intimate, slightly breathy voice "
+        "with playful, teasing intonation. Confident and expressive, speaks with a "
+        "natural flirty cadence — engaging and suggestive without being over the top."
+    ),
+}
+
 
 class VoiceProvider(ABC):
     @abstractmethod
@@ -548,6 +565,267 @@ class VoiceboxVoiceProvider(VoiceProvider):
         return output_path
 
 
+class MayaVoiceProvider(VoiceProvider):
+    """Maya1 — 3B-parameter open-source TTS by maya-research (HuggingFace).
+
+    Requires: pip install torch transformers snac soundfile
+    Hardware:  16 GB+ VRAM recommended (CUDA/MPS). Falls back to CPU.
+
+    The ``voice`` parameter is a natural-language description such as:
+      "A young woman in her late 20s with an American accent, warm, expressive."
+    If omitted the configured ``voice_description`` default is used.
+    """
+
+    # Special token IDs for the Maya1 prompt format
+    _CODE_START = 128257
+    _CODE_END   = 128258
+    _CODE_OFFSET = 128266
+    _SNAC_MIN   = 128266
+    _SNAC_MAX   = 156937
+    _SOH        = 128259
+    _EOH        = 128260
+    _SOA        = 128261
+    _TEXT_EOT   = 128009
+
+    def __init__(
+        self,
+        voice_description: str = (
+            "A young woman in her late 20s with an American accent. "
+            "Warm, expressive, conversational tone with clear diction."
+        ),
+        device: str = "auto",
+        model_id: str = "maya-research/maya1",
+    ):
+        self.voice_description = voice_description
+        self.device = device
+        self.model_id = model_id
+        self._model = None
+        self._tokenizer = None
+        self._snac = None
+
+    def _resolve_device(self) -> str:
+        if self.device != "auto":
+            return self.device
+        try:
+            import torch
+            if torch.cuda.is_available():
+                return "cuda"
+            # Disable MPS for Maya due to PyTorch Metal Performance Shaders allocation bugs
+            # (total bytes of NDArray > 2**32 failed assertions). CPU runs fast enough.
+        except Exception:
+            pass
+        return "cpu"
+
+    def _load_models(self):
+        if self._model is not None:
+            return
+        try:
+            import torch
+            from transformers import AutoModelForCausalLM, AutoTokenizer
+            from snac import SNAC
+        except ImportError as e:
+            raise RuntimeError(
+                "Maya TTS requires extra packages. Install with:\n"
+                "  pip install torch transformers snac soundfile"
+            ) from e
+
+        device = self._resolve_device()
+        import platform
+        is_arm64_mac = platform.system() == "Darwin" and platform.machine() == "arm64"
+
+        if device == "cuda":
+            dtype = torch.bfloat16
+        elif device == "mps" or is_arm64_mac:
+            # Apple Silicon CPU/MPS supports float16 very efficiently
+            dtype = torch.float16
+        else:
+            dtype = torch.float32
+
+        logger.info("Loading Maya1 model from %s on %s …", self.model_id, device)
+        self._tokenizer = AutoTokenizer.from_pretrained(
+            self.model_id, trust_remote_code=True
+        )
+        self._model = AutoModelForCausalLM.from_pretrained(
+            self.model_id,
+            torch_dtype=dtype,
+            device_map="auto" if device == "cuda" else None,
+            trust_remote_code=True,
+        )
+        if device != "cuda":
+            self._model = self._model.to(device)
+        self._model.eval()
+
+        logger.info("Loading SNAC decoder …")
+        self._snac = SNAC.from_pretrained("hubertsiuzdak/snac_24khz").eval()
+        self._snac = self._snac.to(device)
+        self._device = device
+        logger.info("Maya1 ready on %s", device)
+
+    def unload_models(self):
+        """Free memory by deleting model objects and emptying PyTorch cache."""
+        import gc
+        import torch
+        logger.info("Unloading Maya1 and SNAC models to free memory...")
+        self._model = None
+        self._tokenizer = None
+        self._snac = None
+        gc.collect()
+
+        # Empty GPU/MPS cache
+        device = self._resolve_device()
+        if device == "cuda":
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+        elif device == "mps":
+            try:
+                import torch.mps
+                torch.mps.empty_cache()
+            except (ImportError, AttributeError):
+                pass
+
+    def _build_prompt(self, description: str, text: str) -> str:
+        tok = self._tokenizer
+        soh  = tok.decode([self._SOH])
+        eoh  = tok.decode([self._EOH])
+        soa  = tok.decode([self._SOA])
+        sos  = tok.decode([self._CODE_START])
+        eot  = tok.decode([self._TEXT_EOT])
+        bos  = tok.bos_token
+        formatted = f'<description="{description}"> {text}'
+        return soh + bos + formatted + eot + eoh + soa + sos
+
+    def _extract_snac_codes(self, token_ids: list) -> list:
+        try:
+            eos_idx = token_ids.index(self._CODE_END)
+        except ValueError:
+            eos_idx = len(token_ids)
+        return [t for t in token_ids[:eos_idx] if self._SNAC_MIN <= t <= self._SNAC_MAX]
+
+    def _unpack_snac(self, tokens: list) -> list:
+        frames = len(tokens) // 7
+        tokens = tokens[:frames * 7]
+        l1, l2, l3 = [], [], []
+        for i in range(frames):
+            s = tokens[i * 7:(i + 1) * 7]
+            l1.append((s[0] - self._CODE_OFFSET) % 4096)
+            l2.extend([(s[1] - self._CODE_OFFSET) % 4096, (s[4] - self._CODE_OFFSET) % 4096])
+            l3.extend([
+                (s[2] - self._CODE_OFFSET) % 4096,
+                (s[3] - self._CODE_OFFSET) % 4096,
+                (s[5] - self._CODE_OFFSET) % 4096,
+                (s[6] - self._CODE_OFFSET) % 4096,
+            ])
+        return [l1, l2, l3]
+
+    def _synthesize(self, text: str, description: str):
+        """Run model inference synchronously (call via asyncio.to_thread)."""
+        import torch
+        import numpy as np
+
+        self._load_models()
+
+        # Limit threads on CPU to prevent locking up the host system
+        if self._device == "cpu":
+            curr_threads = torch.get_num_threads()
+            if curr_threads > 4:
+                logger.info("Restricting PyTorch CPU threads from %d to 4 to prevent hangs", curr_threads)
+                torch.set_num_threads(4)
+
+        prompt = self._build_prompt(description, text)
+        inputs = self._tokenizer(prompt, return_tensors="pt")
+        inputs = {k: v.to(self._device) for k, v in inputs.items()}
+
+        with torch.inference_mode():
+            outputs = self._model.generate(
+                **inputs,
+                max_new_tokens=2048,
+                min_new_tokens=28,
+                temperature=0.4,
+                top_p=0.9,
+                repetition_penalty=1.1,
+                do_sample=True,
+                eos_token_id=self._CODE_END,
+                pad_token_id=self._tokenizer.pad_token_id,
+            )
+
+        generated = outputs[0, inputs["input_ids"].shape[1]:].tolist()
+        snac_tokens = self._extract_snac_codes(generated)
+        if len(snac_tokens) < 7:
+            raise RuntimeError("Maya: model generated too few SNAC tokens — check input text")
+
+        levels = self._unpack_snac(snac_tokens)
+        codes = [
+            torch.tensor(lvl, dtype=torch.long, device=self._device).unsqueeze(0)
+            for lvl in levels
+        ]
+        with torch.inference_mode():
+            z_q = self._snac.quantizer.from_codes(codes)
+            audio = self._snac.decoder(z_q)[0, 0].cpu().numpy()
+
+        # Trim SNAC warmup artefact
+        if len(audio) > 2048:
+            audio = audio[2048:]
+        return audio.astype(np.float32), 24000
+
+    async def generate_speech(self, text: str, output_path: Path, voice: str = "") -> Path:
+        import asyncio
+        import subprocess
+        import tempfile
+        import re
+        import numpy as np
+
+        import soundfile as sf
+
+        try:
+            description = voice or self.voice_description
+
+            # Split text into sentences to prevent token truncation and run much faster
+            sentences = []
+            raw_sentences = re.split(r'(?<=[.!?])\s+', text.strip())
+            for rs in raw_sentences:
+                rs = rs.strip()
+                if not rs:
+                    continue
+                # If a sentence is abnormally long, chunk it by clauses (commas, semicolons) to avoid slowdown
+                if len(rs.split()) > 35:
+                    sub_parts = re.split(r'(?<=[,;])\s+', rs)
+                    sentences.extend([p.strip() for p in sub_parts if p.strip()])
+                else:
+                    sentences.append(rs)
+
+            if not sentences:
+                sentences = [text]
+
+            logger.info("Maya starting synthesis for %d sentences", len(sentences))
+            all_samples = []
+            sample_rate = 24000
+
+            for i, sent in enumerate(sentences):
+                logger.info("Maya synthesizing sentence %d/%d: '%s'", i + 1, len(sentences), sent)
+                samples, sample_rate = await asyncio.to_thread(self._synthesize, sent, description)
+                all_samples.append(samples)
+
+            if len(all_samples) > 1:
+                samples = np.concatenate(all_samples)
+            else:
+                samples = all_samples[0]
+
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
+                tmp_path = tmp.name
+            try:
+                await asyncio.to_thread(sf.write, tmp_path, samples, sample_rate)
+                subprocess.run(
+                    ["ffmpeg", "-y", "-i", tmp_path, "-codec:a", "libmp3lame", "-q:a", "2", str(output_path)],
+                    check=True, timeout=60, capture_output=True,
+                )
+            finally:
+                Path(tmp_path).unlink(missing_ok=True)
+            return output_path
+        finally:
+            self.unload_models()
+
+
 def get_voice_provider(provider_name: str = "azure_openai", **kwargs) -> VoiceProvider:
     if provider_name == "azure_openai":
         return AzureOpenAIVoiceProvider(
@@ -593,6 +871,27 @@ def get_voice_provider(provider_name: str = "azure_openai", **kwargs) -> VoicePr
             model_dir=kwargs.get("kokoro_model_dir", _s.kokoro_model_dir),
             voice=kwargs.get("kokoro_voice", _s.kokoro_voice),
         )
+    elif provider_name == "maya" or provider_name.startswith("maya:"):
+        from app.config import settings as _s
+        # Support "maya:profile_name" to select a named voice profile.
+        # Settings-page values take priority over the hardcoded defaults so
+        # users can customise profiles without touching code.
+        if ":" in provider_name:
+            profile_key = provider_name.split(":", 1)[1]
+            # Check live settings first (patched from DB by the settings router)
+            settings_attr = f"maya_profile_{profile_key}"
+            description = (
+                kwargs.get(f"maya_profile_{profile_key}")
+                or getattr(_s, settings_attr, "")
+                or MAYA_VOICE_PROFILES.get(profile_key)
+                or kwargs.get("maya_voice_description", _s.maya_voice_description)
+            )
+        else:
+            description = kwargs.get("maya_voice_description", _s.maya_voice_description)
+        return MayaVoiceProvider(
+            voice_description=description,
+            device=kwargs.get("maya_device", _s.maya_device),
+            model_id=kwargs.get("maya_model_id", _s.maya_model_id),
+        )
     else:
         raise ValueError(f"Unknown voice provider: {provider_name}")
-

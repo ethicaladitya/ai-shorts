@@ -160,8 +160,10 @@ async def run_avatar_pipeline(job_id: int, db: Session):
         job.status = AvatarJobStatus.GENERATING_VOICE
         db.commit()
         voice_path = settings.output_dir / f"avatar_voice_{job.id}_{uid}.mp3"
+        # Use per-job voice_provider if set, otherwise fall back to global setting
+        _vp_name = (getattr(job, "voice_provider", "") or "").strip() or settings.voice_provider
         vp = get_voice_provider(
-            provider_name=settings.voice_provider,
+            provider_name=_vp_name,
             endpoint=settings.azure_openai_endpoint,
             api_key=settings.azure_openai_api_key,
             api_version=settings.azure_openai_api_version,

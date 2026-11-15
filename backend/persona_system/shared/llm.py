@@ -26,6 +26,23 @@ async def _call_ollama(prompt: str, system: str = "", temperature: float = 0.8, 
         return r.json()["response"].strip()
 
 
+async def unload_ollama_model() -> None:
+    """Request Ollama to unload the current model from memory to free up VRAM/RAM."""
+    if not settings.ollama_base_url:
+        return
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as c:
+            r = await c.post(
+                f"{settings.ollama_base_url}/api/generate",
+                json={"model": settings.ollama_model, "keep_alive": 0}
+            )
+            r.raise_for_status()
+            logger.info("Successfully requested Ollama to unload model %s", settings.ollama_model)
+    except Exception as e:
+        logger.warning("Failed to unload Ollama model %s: %s", settings.ollama_model, e)
+
+
+
 async def _call_azure(prompt: str, system: str = "", temperature: float = 0.7, max_tokens: int = 512, deployment: str | None = None) -> str:
     """Use existing Azure OpenAI gpt-4o-mini — zero extra cost for bulk generation."""
     endpoint = settings.azure_openai_endpoint.rstrip("/")

@@ -228,10 +228,20 @@ async def _azure_dalle(
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
         }
+        # Map width/height to GPT-Image-2 supported sizes:
+        #   square:    1024x1024
+        #   portrait:  1024x1536 (closest 2:3 to 9:16 — less crop needed)
+        #   landscape: 1536x1024
+        if width > height:
+            img_size = "1536x1024"
+        elif height > width:
+            img_size = "1024x1536"  # portrait — best for 9:16 video
+        else:
+            img_size = "1024x1024"
         payload = {
             "prompt": positive,
             "n": 1,
-            "size": "1024x1024",
+            "size": img_size,
             "quality": "low",
             "output_format": "png",
             "output_compression": 100,

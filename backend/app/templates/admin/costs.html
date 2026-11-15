@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% block title %}Admin — System Costs{% endblock %}
+
+{% block content %}
+<div class="px-8 py-8">
+
+    <div class="mb-8">
+        <h1 class="text-2xl font-bold text-slate-900">System Costs</h1>
+        <p class="text-slate-500 text-sm mt-1">Total API spend across all users and providers</p>
+    </div>
+
+    <!-- Total banner -->
+    <div class="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl p-6 text-white mb-8 flex items-center justify-between">
+        <div>
+            <p class="text-slate-400 text-sm mb-1">Total System Spend</p>
+            <p class="text-4xl font-extrabold">${{ system_total }}</p>
+        </div>
+        <svg class="w-16 h-16 text-slate-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+
+        <!-- Per-user costs -->
+        <div class="bg-white rounded-2xl border border-slate-200 p-6">
+            <h2 class="font-semibold text-slate-900 mb-4">Per User</h2>
+            {% if user_costs %}
+            <div class="space-y-3">
+                {% for email, total in user_costs %}
+                <div class="flex items-center gap-3">
+                    <div class="flex-1">
+                        <p class="text-sm text-slate-700 font-medium truncate">{{ email or 'system' }}</p>
+                        <div class="mt-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                            {% if system_total > 0 %}
+                            <div class="h-full bg-violet-500 rounded-full" style="width: {{ [(total / system_total * 100)|int, 100]|min }}%"></div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <span class="text-sm font-semibold text-slate-900 flex-shrink-0">${{ "%.4f"|format(total) }}</span>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-sm text-slate-400">No cost data yet.</p>
+            {% endif %}
+        </div>
+
+        <!-- Per-provider costs -->
+        <div class="bg-white rounded-2xl border border-slate-200 p-6">
+            <h2 class="font-semibold text-slate-900 mb-4">Per Provider</h2>
+            {% if provider_costs %}
+            <div class="space-y-3">
+                {% for provider, total in provider_costs %}
+                <div class="flex items-center gap-3">
+                    <div class="flex-1">
+                        <p class="text-sm text-slate-700 font-medium">{{ provider or 'unknown' }}</p>
+                        <div class="mt-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                            {% if system_total > 0 %}
+                            <div class="h-full bg-pink-500 rounded-full" style="width: {{ [(total / system_total * 100)|int, 100]|min }}%"></div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <span class="text-sm font-semibold text-slate-900">${{ "%.4f"|format(total) }}</span>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-sm text-slate-400">No cost data yet.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Recent events -->
+    <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+        <div class="px-6 py-4 border-b border-slate-100">
+            <h2 class="font-semibold text-slate-900">Recent Events</h2>
+        </div>
+        {% if recent %}
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead class="bg-slate-50">
+                    <tr>
+                        <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500">User</th>
+                        <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500">Provider</th>
+                        <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500">Operation</th>
+                        <th class="text-right px-5 py-3 text-xs font-semibold text-slate-500">Cost</th>
+                        <th class="text-right px-5 py-3 text-xs font-semibold text-slate-500">Date</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    {% for row in recent %}
+                    <tr class="hover:bg-slate-50">
+                        <td class="px-5 py-3 text-slate-600 text-xs">{{ row.user_email or row.persona_name or '—' }}</td>
+                        <td class="px-5 py-3 text-slate-700">{{ row.provider or '—' }}</td>
+                        <td class="px-5 py-3 text-slate-500 text-xs">{{ row.operation or '—' }}</td>
+                        <td class="px-5 py-3 text-right font-medium text-slate-900">${{ "%.5f"|format(row.cost_usd) }}</td>
+                        <td class="px-5 py-3 text-right text-slate-400 text-xs">{{ row.created_at.strftime('%b %d %H:%M') if row.created_at else '—' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="px-6 py-8 text-center text-slate-400 text-sm">No cost events recorded yet.</div>
+        {% endif %}
+    </div>
+
+</div>
+{% endblock %}

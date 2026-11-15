@@ -324,10 +324,9 @@ async def _replicate_latentsync_apply(
             "REPLICATE_API_KEY not set. Sign up at replicate.com (pay-as-you-go, ~$0.01/video)"
         )
 
-    headers = {
+    auth_headers = {
         "Authorization": f"Bearer {settings.replicate_api_key}",
         "Content-Type": "application/json",
-        "Prefer": "wait",
     }
 
     with video_path.open("rb") as f:
@@ -335,26 +334,28 @@ async def _replicate_latentsync_apply(
     with audio_path.open("rb") as f:
         audio_b64 = f"data:audio/mpeg;base64,{base64.b64encode(f.read()).decode()}"
 
-    async with httpx.AsyncClient(timeout=60.0) as client:
+    # Use the model predictions endpoint (no pinned version — always uses latest)
+    async with httpx.AsyncClient(timeout=120.0) as client:
         pred = await client.post(
-            "https://api.replicate.com/v1/predictions",
+            "https://api.replicate.com/v1/models/zsxkib/latentsync/predictions",
             json={
-                "version": "4f4b26d3574a73b5e52b02b5c0eef1e0b2acde89d2b4c6e1d5c1e5e58e5a5b5a",
                 "input": {
                     "video": video_b64,
                     "audio": audio_b64,
-                    "guidance_scale": 2.5,
+                    "guidance_scale": 1.5,
+                    "video_fps": 25,
                     "inference_steps": 20,
+                    "seed": 42,
                 },
             },
-            headers=headers,
+            headers=auth_headers,
         )
         pred.raise_for_status()
         pred_data = pred.json()
         pred_id = pred_data.get("id")
 
     if not pred_id:
-        raise RuntimeError(f"Replicate LatentSync: no prediction ID in response")
+        raise RuntimeError(f"Replicate LatentSync: no prediction ID in response: {pred_data}")
 
     logger.info("Replicate LatentSync submitted: %s", pred_id)
 
@@ -368,18 +369,22 @@ async def _replicate_latentsync_apply(
             status_resp.raise_for_status()
             data = status_resp.json()
 
-        if data["status"] == "succeeded":
-            video_url = data["output"] if isinstance(data["output"], str) else data["output"][0]
-            async with httpx.AsyncClient(timeout=300.0) as client:
+        status = data.get("status", "")
+        if status == "succeeded":
+            out = data.get("output")
+            video_url = out if isinstance(out, str) else (out[0] if out else None)
+            if not video_url:
+                raise RuntimeError("Replicate LatentSync: no output URL")
+            async with httpx.AsyncClient(timeout=300.0, follow_redirects=True) as client:
                 dl = await client.get(video_url)
                 dl.raise_for_status()
             output_path.parent.mkdir(parents=True, exist_ok=True)
             output_path.write_bytes(dl.content)
             logger.info("Replicate LatentSync complete → %s", output_path.name)
             return output_path
-        elif data["status"] == "failed":
+        elif status == "failed":
             raise RuntimeError(f"Replicate LatentSync failed: {data.get('error', 'unknown')}")
-        logger.debug("Replicate LatentSync %s: %s", pred_id, data["status"])
+        logger.debug("Replicate LatentSync %s: %s", pred_id, status)
 
     raise TimeoutError(f"Replicate LatentSync {pred_id} timed out after 15 minutes")
 
@@ -393,28 +398,46 @@ async def _syncso_apply(
     output_path: Path,
 ) -> Path:
     """
-    Lipsync via sync.so API. Free tier available at sync.so.
-    Set SYNCSO_API_KEY in .env after signing up.
+    Lipsync via sync.so API. Free tier available; pay-as-you-go after that (~$0.01/video).
+    Set SYNCSO_API_KEY in .env after signing up at sync.so.
+
+    sync.so v2 API accepts a JSON body with base64 video+audio data URIs.
     """
     import os
-    api_key = os.environ.get("SYNCSO_API_KEY", "")
+    # Try settings first, then env var directly
+    try:
+        from app.config import settings as app_settings
+        api_key = getattr(app_settings, "syncso_api_key", "") or os.environ.get("SYNCSO_API_KEY", "")
+    except Exception:
+        api_key = os.environ.get("SYNCSO_API_KEY", "")
+
     if not api_key:
         raise RuntimeError("SYNCSO_API_KEY not set. Sign up at sync.so (free tier available)")
 
-    headers = {"x-api-key": api_key}
+    headers = {
+        "x-api-key": api_key,
+        "Content-Type": "application/json",
+    }
     base = "https://api.sync.so/v2"
 
-    async with httpx.AsyncClient(timeout=300.0) as client:
-        with video_path.open("rb") as vf, audio_path.open("rb") as af:
-            resp = await client.post(
-                f"{base}/generate",
-                headers=headers,
-                files={
-                    "video": (video_path.name, vf, "video/mp4"),
-                    "audio": (audio_path.name, af, "audio/mpeg"),
-                },
-                data={"model": "sync-1.6.0"},
-            )
+    with video_path.open("rb") as vf:
+        video_b64 = f"data:video/mp4;base64,{base64.b64encode(vf.read()).decode()}"
+    with audio_path.open("rb") as af:
+        audio_b64 = f"data:audio/mpeg;base64,{base64.b64encode(af.read()).decode()}"
+
+    async with httpx.AsyncClient(timeout=120.0) as client:
+        resp = await client.post(
+            f"{base}/generate",
+            headers=headers,
+            json={
+                "model": "sync-1.6.0",
+                "input": [
+                    {"type": "video", "data": video_b64},
+                    {"type": "audio", "data": audio_b64},
+                ],
+                "options": {"output_format": "mp4"},
+            },
+        )
         resp.raise_for_status()
         job = resp.json()
         job_id = job.get("id")
@@ -433,10 +456,10 @@ async def _syncso_apply(
 
         status = data.get("status", "")
         if status == "completed":
-            video_url = data.get("outputUrl") or data.get("video_url", "")
+            video_url = data.get("outputUrl") or data.get("output_url") or data.get("video_url", "")
             if not video_url:
-                raise RuntimeError("sync.so completed but no outputUrl")
-            async with httpx.AsyncClient(timeout=300.0) as client:
+                raise RuntimeError(f"sync.so completed but no output URL in response: {data}")
+            async with httpx.AsyncClient(timeout=300.0, follow_redirects=True) as client:
                 dl = await client.get(video_url)
                 dl.raise_for_status()
             output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -444,7 +467,7 @@ async def _syncso_apply(
             logger.info("sync.so lipsync complete → %s", output_path.name)
             return output_path
         elif status in ("failed", "error"):
-            raise RuntimeError(f"sync.so job failed: {data.get('error', 'unknown')}")
+            raise RuntimeError(f"sync.so job failed: {data.get('error', data.get('message', 'unknown'))}")
         logger.debug("sync.so job %s: %s", job_id, status)
 
     raise TimeoutError(f"sync.so job {job_id} timed out")
@@ -524,6 +547,90 @@ async def _sadtalker_apply(
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Wav2Lip — free local lipsync (needs one-time install)
+# ─────────────────────────────────────────────────────────────────────────────
+async def _wav2lip_apply(
+    video_path: Path,
+    audio_path: Path,
+    output_path: Path,
+) -> Path:
+    """
+    Apply lipsync via Wav2Lip (local, free, runs on CPU/MPS).
+    Install: git clone https://github.com/Rudrabha/Wav2Lip && pip install -r requirements.txt
+    Download checkpoint: wget 'https://iiitaphyd-my.sharepoint.com/...' -O checkpoints/wav2lip_gan.pth
+    Set WAV2LIP_DIR=/path/to/Wav2Lip in .env.
+    """
+    try:
+        from app.config import settings as app_settings
+        wav2lip_dir = Path(app_settings.wav2lip_dir) if app_settings.wav2lip_dir else None
+    except Exception:
+        import os
+        wav2lip_dir = Path(os.environ.get("WAV2LIP_DIR", "")) if os.environ.get("WAV2LIP_DIR") else None
+
+    if not wav2lip_dir or not wav2lip_dir.exists():
+        raise RuntimeError(
+            "Wav2Lip not configured. Clone https://github.com/Rudrabha/Wav2Lip and set WAV2LIP_DIR=/path/to/Wav2Lip"
+        )
+
+    checkpoint = wav2lip_dir / "checkpoints" / "wav2lip_gan.pth"
+    if not checkpoint.exists():
+        # Try wav2lip.pth (no GAN version)
+        checkpoint = wav2lip_dir / "checkpoints" / "wav2lip.pth"
+    if not checkpoint.exists():
+        raise RuntimeError(
+            f"Wav2Lip checkpoint not found in {wav2lip_dir / 'checkpoints'}. "
+            "Download wav2lip_gan.pth from the Wav2Lip releases."
+        )
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # Wav2Lip outputs to a temp file then we convert to proper MP4
+    import tempfile
+    with tempfile.NamedTemporaryFile(suffix=".avi", delete=False) as tmp_avi:
+        tmp_avi_path = Path(tmp_avi.name)
+
+    try:
+        cmd = [
+            "python3", "inference.py",
+            "--checkpoint_path", str(checkpoint),
+            "--face", str(video_path.resolve()),
+            "--audio", str(audio_path.resolve()),
+            "--outfile", str(tmp_avi_path),
+            "--nosmooth",
+            "--resize_factor", "1",
+        ]
+        logger.info("Running Wav2Lip...")
+        proc = await asyncio.create_subprocess_exec(
+            *cmd,
+            cwd=str(wav2lip_dir),
+            stdout=asyncio.subprocess.DEVNULL,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        _, stderr = await proc.communicate()
+        if proc.returncode != 0:
+            raise RuntimeError(f"Wav2Lip failed (rc={proc.returncode}): {stderr.decode()[-400:]}")
+
+        # Convert AVI → MP4 and scale to 9:16
+        convert_cmd = [
+            FFMPEG, "-y", "-i", str(tmp_avi_path),
+            "-vf", "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1",
+            "-c:v", "libx264", "-preset", "veryfast", "-crf", "18",
+            "-pix_fmt", "yuv420p", "-an", str(output_path),
+        ]
+        proc2 = await asyncio.create_subprocess_exec(
+            *convert_cmd, stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.PIPE
+        )
+        _, stderr2 = await proc2.communicate()
+        if proc2.returncode != 0:
+            raise RuntimeError(f"Wav2Lip AVI→MP4 failed: {stderr2.decode()[-300:]}")
+
+        logger.info("Wav2Lip complete → %s", output_path.name)
+        return output_path
+    finally:
+        tmp_avi_path.unlink(missing_ok=True)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Public interface
 # ─────────────────────────────────────────────────────────────────────────────
 async def apply_lipsync(
@@ -535,26 +642,33 @@ async def apply_lipsync(
     """
     Apply lipsync to a video clip using the configured provider.
 
-    Args:
-        video_path:  Input video (MP4). Can be static image loop or animated clip.
-        audio_path:  Voice audio (MP3/WAV).
-        output_path: Output MP4 path.
-        provider:    "latentsync" | "hedra" | "sadtalker" | "replicate_latentsync" | "syncso" — overrides settings.lipsync_provider.
+    Provider options (cheapest first):
+      "wav2lip"              — local, free, needs install (WAV2LIP_DIR)
+      "replicate_latentsync" — ~$0.01/video via Replicate API (REPLICATE_API_KEY)
+      "syncso"               — ~$0.01/video via sync.so API (SYNCSO_API_KEY)
+      "hedra"                — ~$0.05/video via Hedra API (HEDRA_API_KEY)
+      "sadtalker"            — via Replicate SadTalker model
+      "latentsync"           — local ByteDance LatentSync (LATENTSYNC_DIR)
 
-    Returns:
-        Path to the lipsync-applied video.
+    Args:
+        video_path:  Input video (MP4). Face must be visible — can be Ken-Burns portrait clip.
+        audio_path:  Voice audio (MP3/WAV) to sync lips to.
+        output_path: Output MP4 path.
+        provider:    Override settings.lipsync_provider.
     """
     prov = (provider or settings.lipsync_provider).lower()
     logger.info("Applying lipsync via '%s': %s → %s", prov, video_path.name, output_path.name)
 
-    if prov == "hedra":
+    if prov in ("syncso", "sync.so"):
+        return await _syncso_apply(video_path, audio_path, output_path)
+    elif prov == "replicate_latentsync":
+        return await _replicate_latentsync_apply(video_path, audio_path, output_path)
+    elif prov == "wav2lip":
+        return await _wav2lip_apply(video_path, audio_path, output_path)
+    elif prov == "hedra":
         return await _hedra_apply(video_path, audio_path, output_path)
     elif prov == "sadtalker":
         return await _sadtalker_apply(video_path, audio_path, output_path)
-    elif prov == "replicate_latentsync":
-        return await _replicate_latentsync_apply(video_path, audio_path, output_path)
-    elif prov == "syncso":
-        return await _syncso_apply(video_path, audio_path, output_path)
     else:
         # latentsync (default / local)
         return await _latentsync_apply(video_path, audio_path, output_path)

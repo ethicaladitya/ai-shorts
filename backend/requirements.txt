@@ -13,10 +13,15 @@ itsdangerous==2.2.0
 # Kokoro local TTS (kokoro-82M via ONNX Runtime — no PyTorch / GPU needed)
 kokoro-onnx>=0.5.0
 soundfile>=0.12.0
+# Maya1 TTS (3B open-source model — https://maya1.org — needs 16 GB+ VRAM)
+# Install separately if using VOICE_PROVIDER=maya:
+#   pip install torch transformers snac
+torch>=2.1.0
+transformers>=4.40.0
+snac>=1.2.1
 # Persona System extras
 pyyaml>=6.0.1
 pillow>=10.3.0
 playwright>=1.43.0
 schedule>=1.2.1
 opencv-python-headless>=4.9.0
-

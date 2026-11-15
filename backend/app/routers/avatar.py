@@ -29,12 +29,18 @@ async def avatar_page(request: Request, db: Session = Depends(get_db)):
         .limit(5)
         .all()
     )
+    from app.services.voice_provider import MAYA_VOICE_PROFILES
+    from app.models import PersonaAccount
+    personas = db.query(PersonaAccount).filter_by(is_active=True).all()
     return templates.TemplateResponse(
         "avatar.html",
         {
             "request": request,
             "recent": recent,
             "did_configured": bool(settings.did_api_key),
+            "maya_profiles": MAYA_VOICE_PROFILES,
+            "default_voice_provider": settings.voice_provider,
+            "personas": personas,
         },
     )
 
@@ -45,6 +51,7 @@ async def create_avatar(
     background_tasks: BackgroundTasks,
     topic: str = Form(...),
     custom_notes: str = Form(""),
+    voice_provider: str = Form(""),
     photo: UploadFile = File(...),
     db: Session = Depends(get_db),
 ):
@@ -91,6 +98,7 @@ async def create_avatar(
         topic=topic,
         custom_notes=custom_notes,
         face_image_path=str(face_path),
+        voice_provider=voice_provider or "",
         status=AvatarJobStatus.PENDING,
         log="",
     )

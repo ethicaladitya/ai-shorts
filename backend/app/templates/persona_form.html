@@ -1,169 +1,222 @@
 {% extends "base.html" %}
-{% block title %}{{ "Edit" if persona else "New" }} Persona{% endblock %}
-{% block content %}
+{% block title %}{{ 'Edit' if persona else 'New' }} Persona{% endblock %}
 
-<div class="mb-6">
-    <a href="/personas/" class="text-sm text-gray-400 hover:text-gray-600">← Personas</a>
-    <h2 class="text-2xl font-bold text-gray-900 mt-2">{{ "Edit" if persona else "New" }} Persona</h2>
+{% block content %}
+<div class="px-4 sm:px-8 py-6 max-w-3xl">
+
+    <!-- Header -->
+    <div class="mb-6 flex items-center gap-4">
+        <a href="/personas/" class="text-slate-400 hover:text-slate-600 transition">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+        </a>
+        <div>
+            <h1 class="text-2xl font-bold text-slate-900">{{ 'Edit ' + persona.display_name if persona else 'New Persona' }}</h1>
+            <p class="text-slate-500 text-sm mt-0.5">Define your AI creator identity</p>
+        </div>
+    </div>
+
+    <form method="POST"
+          action="{{ '/personas/api/personas/' + persona.persona_name if persona else '/personas/api/personas' }}"
+          enctype="multipart/form-data"
+          class="space-y-6">
+
+        <!-- Basic Info -->
+        <div class="bg-white rounded-2xl border border-slate-200 p-6">
+            <h2 class="font-semibold text-slate-900 mb-5 flex items-center gap-2">
+                <span class="w-6 h-6 rounded-full bg-violet-100 text-violet-600 text-xs font-bold flex items-center justify-center">1</span>
+                Identity
+            </h2>
+
+            <div class="flex gap-6">
+                <!-- Avatar upload -->
+                <div class="flex-shrink-0">
+                    <div id="avatar-preview"
+                         class="w-24 h-24 rounded-2xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center cursor-pointer hover:border-violet-400 transition overflow-hidden bg-slate-50"
+                         onclick="document.getElementById('avatar-file').click()">
+                        {% if persona and persona.reference_image_path %}
+                        <img src="/persona_avatars/{{ persona.persona_name }}/{{ persona.reference_image_path.split('/')[-1] }}"
+                             class="w-full h-full object-cover" id="avatar-img"
+                             onerror="this.parentElement.innerHTML='<div class=\'flex flex-col items-center gap-1 text-slate-400\'><svg class=\'w-6 h-6\' fill=\'none\' stroke=\'currentColor\' viewBox=\'0 0 24 24\'><path stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'2\' d=\'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z\'/></svg><span class=\'text-xs\'>Photo</span></div>'">
+                        {% else %}
+                        <div class="flex flex-col items-center gap-1 text-slate-400">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                            <span class="text-xs">Photo</span>
+                        </div>
+                        {% endif %}
+                    </div>
+                    <input type="file" id="avatar-file" name="avatar_file" accept="image/*" class="sr-only">
+                    <p class="text-xs text-slate-400 text-center mt-1.5">Click to upload</p>
+                </div>
+
+                <div class="flex-1 space-y-4">
+                    {% if not persona %}
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1.5">Persona ID <span class="text-slate-400 font-normal">(slug, no spaces)</span></label>
+                        <input type="text" name="persona_name" required
+                               pattern="[a-z0-9_-]+" title="Lowercase letters, numbers, underscores and hyphens only"
+                               placeholder="aditya_shah"
+                               class="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent">
+                    </div>
+                    {% endif %}
+
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1.5">Display Name</label>
+                        <input type="text" name="display_name" required
+                               value="{{ persona.display_name if persona else '' }}"
+                               placeholder="Aditya Shah"
+                               class="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-violet-400">
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-4">
+                <label class="block text-sm font-medium text-slate-700 mb-1.5">Bio <span class="text-slate-400 font-normal">(short description, shown on profile)</span></label>
+                <textarea name="bio" rows="2" placeholder="Tech creator sharing the tools and habits that drive growth..."
+                          class="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-violet-400 resize-none">{{ persona.bio if persona else '' }}</textarea>
+            </div>
+        </div>
+
+        <!-- Personality -->
+        <div class="bg-white rounded-2xl border border-slate-200 p-6">
+            <h2 class="font-semibold text-slate-900 mb-1 flex items-center gap-2">
+                <span class="w-6 h-6 rounded-full bg-violet-100 text-violet-600 text-xs font-bold flex items-center justify-center">2</span>
+                Personality
+            </h2>
+            <p class="text-xs text-slate-400 mb-4">Describe how this persona thinks, speaks, and what they stand for. The AI uses this when writing scripts.</p>
+            <textarea name="personality" rows="4"
+                      placeholder="Confident, direct, and knowledgeable. Speaks like a smart friend who's done the research. Uses short punchy sentences. Avoids corporate speak. Loves data but makes it accessible. Primary audience: 18-35 tech-curious professionals..."
+                      class="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-violet-400 resize-none">{{ persona.personality if persona else '' }}</textarea>
+        </div>
+
+        <!-- Voice -->
+        <div class="bg-white rounded-2xl border border-slate-200 p-6">
+            <h2 class="font-semibold text-slate-900 mb-1 flex items-center gap-2">
+                <span class="w-6 h-6 rounded-full bg-violet-100 text-violet-600 text-xs font-bold flex items-center justify-center">3</span>
+                Voice
+            </h2>
+            <p class="text-xs text-slate-400 mb-4">Choose the TTS engine for this persona. Maya voices run locally — free.</p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {% for value, label in voice_options %}
+                <label class="flex items-center gap-3 p-3 rounded-xl border border-slate-200 cursor-pointer hover:border-violet-300 transition has-[:checked]:border-violet-500 has-[:checked]:bg-violet-50">
+                    <input type="radio" name="voice_provider" value="{{ value }}"
+                           {% if (persona and persona.voice_provider == value) or (not persona and value == 'maya:aditya') %}checked{% endif %}
+                           class="text-violet-600">
+                    <span class="text-sm text-slate-700">{{ label }}</span>
+                </label>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Social Connections -->
+        <div class="bg-white rounded-2xl border border-slate-200 p-6">
+            <h2 class="font-semibold text-slate-900 mb-1 flex items-center gap-2">
+                <span class="w-6 h-6 rounded-full bg-violet-100 text-violet-600 text-xs font-bold flex items-center justify-center">4</span>
+                Social Connections
+            </h2>
+            <p class="text-xs text-slate-400 mb-4">Connect this persona's social accounts to auto-post videos and manage DMs.</p>
+
+            <div class="space-y-4">
+                <!-- Instagram -->
+                <div class="flex items-center gap-4 p-4 rounded-xl border border-slate-100 bg-slate-50">
+                    <div class="w-9 h-9 rounded-lg flex items-center justify-center bg-gradient-to-br from-pink-500 to-orange-400">
+                        <svg class="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
+                    </div>
+                    <div class="flex-1">
+                        <p class="text-sm font-medium text-slate-700 mb-1">Instagram</p>
+                        <input type="text" name="instagram_username"
+                               value="{{ persona.instagram_username if persona else '' }}"
+                               placeholder="@username"
+                               class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-pink-400">
+                    </div>
+                </div>
+
+                <!-- TikTok -->
+                <div class="flex items-center gap-4 p-4 rounded-xl border border-slate-100 bg-slate-50">
+                    <div class="w-9 h-9 rounded-lg flex items-center justify-center bg-black">
+                        <svg class="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1V9.01a6.33 6.33 0 00-.79-.05 6.34 6.34 0 00-6.34 6.34 6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.33-6.34V8.69a8.23 8.23 0 004.84 1.56V6.79a4.84 4.84 0 01-1.07-.1z"/></svg>
+                    </div>
+                    <div class="flex-1">
+                        <p class="text-sm font-medium text-slate-700 mb-1">TikTok</p>
+                        <input type="text" name="tiktok_username"
+                               value="{{ persona.tiktok_username if persona else '' }}"
+                               placeholder="@username"
+                               class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-slate-400">
+                    </div>
+                </div>
+
+                <!-- OnlyFans -->
+                <div class="flex items-center gap-4 p-4 rounded-xl border border-slate-100 bg-slate-50">
+                    <div class="w-9 h-9 rounded-lg flex items-center justify-center bg-blue-500">
+                        <span class="text-white text-xs font-bold">OF</span>
+                    </div>
+                    <div class="flex-1">
+                        <p class="text-sm font-medium text-slate-700 mb-1">OnlyFans</p>
+                        <input type="text" name="onlyfans_username"
+                               value="{{ persona.onlyfans_username if persona else '' }}"
+                               placeholder="username"
+                               class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400">
+                    </div>
+                </div>
+            </div>
+
+            <!-- DM Auto-reply -->
+            <div class="mt-4 flex items-center gap-3 p-4 rounded-xl bg-slate-50 border border-slate-100">
+                <input type="checkbox" name="dm_auto_reply" id="dm-toggle"
+                       {% if persona and persona.dm_auto_reply %}checked{% endif %}
+                       class="rounded text-violet-600 focus:ring-violet-400 w-4 h-4">
+                <label for="dm-toggle" class="text-sm text-slate-700 cursor-pointer">
+                    <span class="font-medium">Enable DM auto-reply</span>
+                    <span class="text-slate-400 font-normal ml-1">— AI responds to incoming messages automatically</span>
+                </label>
+            </div>
+        </div>
+
+        <!-- Content Style -->
+        <div class="bg-white rounded-2xl border border-slate-200 p-6">
+            <h2 class="font-semibold text-slate-900 mb-4 flex items-center gap-2">
+                <span class="w-6 h-6 rounded-full bg-violet-100 text-violet-600 text-xs font-bold flex items-center justify-center">5</span>
+                Default Content Style
+            </h2>
+            <select name="content_style" class="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-violet-400">
+                <option value="ugc" {% if not persona or persona.content_style == 'ugc' %}selected{% endif %}>UGC — User-generated, conversational</option>
+                <option value="educational" {% if persona and persona.content_style == 'educational' %}selected{% endif %}>Educational — Teach something valuable</option>
+                <option value="entertainment" {% if persona and persona.content_style == 'entertainment' %}selected{% endif %}>Entertainment — Fun and engaging</option>
+                <option value="promotional" {% if persona and persona.content_style == 'promotional' %}selected{% endif %}>Promotional — Product/service promotion</option>
+                <option value="storytelling" {% if persona and persona.content_style == 'storytelling' %}selected{% endif %}>Storytelling — Narrative-driven</option>
+            </select>
+        </div>
+
+        <!-- Actions -->
+        <div class="flex items-center gap-3 pb-8">
+            <button type="submit"
+                    class="inline-flex items-center gap-2 px-6 py-2.5 bg-violet-600 text-white text-sm font-medium rounded-xl hover:bg-violet-700 transition">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                {{ 'Save Changes' if persona else 'Create Persona' }}
+            </button>
+            <a href="/personas/" class="text-sm text-slate-500 hover:text-slate-700">Cancel</a>
+        </div>
+    </form>
 </div>
 
-<form action="{{ '/api/personas/' + persona.persona_name if persona else '/api/personas' }}"
-      method="post" enctype="multipart/form-data" class="grid grid-cols-3 gap-6">
-
-    <!-- Left: core identity -->
-    <div class="col-span-2 space-y-4">
-        <div class="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
-            <h3 class="text-sm font-semibold text-gray-700 border-b border-gray-100 pb-2">Identity</h3>
-
-            <div class="grid grid-cols-2 gap-4">
-                <div>
-                    <label class="block text-xs font-medium text-gray-600 mb-1">Persona ID <span class="text-gray-400">(slug, no spaces)</span></label>
-                    <input type="text" name="persona_name" required
-                           value="{{ persona.persona_name if persona else '' }}"
-                           {{ 'readonly class="bg-gray-50"' if persona else '' }}
-                           placeholder="e.g. luna_rose"
-                           class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-900">
-                </div>
-                <div>
-                    <label class="block text-xs font-medium text-gray-600 mb-1">Display Name</label>
-                    <input type="text" name="display_name"
-                           value="{{ persona.display_name if persona else '' }}"
-                           placeholder="e.g. Luna Rose"
-                           class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-900">
-                </div>
-            </div>
-
-            <div>
-                <label class="block text-xs font-medium text-gray-600 mb-1">Bio / Persona Description</label>
-                <textarea name="bio" rows="3" placeholder="Short, casual bio for the persona. Used in DM replies and captions."
-                          class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 resize-none">{{ persona.bio if persona else '' }}</textarea>
-            </div>
-
-            <div>
-                <label class="block text-xs font-medium text-gray-600 mb-1">Reference Image</label>
-                <input type="file" name="reference_image" accept="image/*"
-                       class="text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-gray-900 file:text-white hover:file:bg-gray-800">
-                {% if persona and persona.reference_image_path %}
-                <p class="text-xs text-gray-400 mt-1">Current: {{ persona.reference_image_path.split('/')[-1] }}</p>
-                {% endif %}
-            </div>
-        </div>
-
-        <!-- Social accounts -->
-        <div class="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
-            <h3 class="text-sm font-semibold text-gray-700 border-b border-gray-100 pb-2">Social Accounts</h3>
-            <div class="grid grid-cols-3 gap-4">
-                <div>
-                    <label class="block text-xs font-medium text-gray-600 mb-1">📸 Instagram Username</label>
-                    <input type="text" name="instagram_username"
-                           value="{{ persona.instagram_username if persona else '' }}"
-                           placeholder="luna.rose.ai"
-                           class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-900">
-                </div>
-                <div>
-                    <label class="block text-xs font-medium text-gray-600 mb-1">🔞 OnlyFans Username</label>
-                    <input type="text" name="onlyfans_username"
-                           value="{{ persona.onlyfans_username if persona else '' }}"
-                           placeholder="lunarose"
-                           class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-900">
-                </div>
-                <div>
-                    <label class="block text-xs font-medium text-gray-600 mb-1">🎵 TikTok Username</label>
-                    <input type="text" name="tiktok_username"
-                           value="{{ persona.tiktok_username if persona else '' }}"
-                           placeholder="luna.rose.ai"
-                           class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-900">
-                </div>
-            </div>
-            <p class="text-xs text-gray-400">API tokens are set in .env per persona (INSTAGRAM_ACCESS_TOKEN_LUNAROSE, etc)</p>
-        </div>
-
-        <!-- DM automation -->
-        <div class="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
-            <h3 class="text-sm font-semibold text-gray-700 border-b border-gray-100 pb-2">DM Automation</h3>
-
-            <label class="flex items-center gap-3 cursor-pointer">
-                <input type="checkbox" name="dm_auto_reply" value="true"
-                       {{ 'checked' if persona and persona.dm_auto_reply else '' }}
-                       class="w-4 h-4 rounded border-gray-300 text-gray-900">
-                <span class="text-sm text-gray-700">Auto-reply to cold / simple DMs</span>
-            </label>
-
-            <div>
-                <label class="block text-xs font-medium text-gray-600 mb-1">
-                    Guardrail topics <span class="text-gray-400">(one per line — never discuss these)</span>
-                </label>
-                <textarea name="dm_guardrails_raw" rows="4"
-                          placeholder="meet in person&#10;real name&#10;home address&#10;payment outside platform"
-                          class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 resize-none font-mono">{{ (persona.dm_guardrails | join('\n')) if persona else '' }}</textarea>
-                <p class="text-xs text-gray-400 mt-1">Global guardrails (meet in person, real name, etc) always apply on top of these.</p>
-            </div>
-        </div>
-    </div>
-
-    <!-- Right: voice + content -->
-    <div class="space-y-4">
-        <div class="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
-            <h3 class="text-sm font-semibold text-gray-700 border-b border-gray-100 pb-2">Voice</h3>
-            <div>
-                <label class="block text-xs font-medium text-gray-600 mb-1">Provider</label>
-                <select name="voice_provider" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-900">
-                    <option value="voicebox" {{ 'selected' if not persona or persona.voice_provider == 'voicebox' else '' }}>Voicebox (Local)</option>
-                    <option value="kokoro" {{ 'selected' if persona and persona.voice_provider == 'kokoro' else '' }}>Kokoro (Local)</option>
-                    <option value="elevenlabs" {{ 'selected' if persona and persona.voice_provider == 'elevenlabs' else '' }}>ElevenLabs</option>
-                    <option value="azure_openai" {{ 'selected' if persona and persona.voice_provider == 'azure_openai' else '' }}>Azure TTS</option>
-                </select>
-            </div>
-            <div>
-                <label class="block text-xs font-medium text-gray-600 mb-1">Voicebox Profile ID</label>
-                <input type="text" name="voice_profile_id"
-                       value="{{ persona.voice_profile_id if persona else '' }}"
-                       placeholder="31f59009-635c-48c9-aa2a-4c80bc0afae2"
-                       class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-gray-900">
-                <p class="text-xs text-gray-400 mt-1">Find in Voicebox app → Profiles</p>
-            </div>
-        </div>
-
-        <div class="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
-            <h3 class="text-sm font-semibold text-gray-700 border-b border-gray-100 pb-2">Content</h3>
-            <div>
-                <label class="block text-xs font-medium text-gray-600 mb-1">Default Style</label>
-                <select name="content_style" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-900">
-                    <option value="ugc" {{ 'selected' if not persona or persona.content_style == 'ugc' else '' }}>UGC / Creator</option>
-                    <option value="casual-vlog" {{ 'selected' if persona and persona.content_style == 'casual-vlog' else '' }}>Casual Vlog</option>
-                    <option value="lifestyle" {{ 'selected' if persona and persona.content_style == 'lifestyle' else '' }}>Lifestyle</option>
-                    <option value="promo" {{ 'selected' if persona and persona.content_style == 'promo' else '' }}>Product Promo</option>
-                </select>
-            </div>
-        </div>
-
-        <div class="bg-blue-50 border border-blue-100 rounded-xl p-4 text-xs text-blue-700 space-y-1">
-            <p class="font-semibold text-blue-800">How it works</p>
-            <p>1. Create persona + upload reference image</p>
-            <p>2. Link social accounts (set tokens in .env)</p>
-            <p>3. Generate UGC videos → auto-post to IG/OF/TikTok</p>
-            <p>4. DMs come in → AI classifies + auto-replies with guardrails</p>
-            <p>5. All $ spent tracked per-persona</p>
-        </div>
-
-        <button type="submit"
-                class="w-full px-4 py-2.5 bg-gray-900 text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition">
-            {{ "Save Changes" if persona else "Create Persona" }}
-        </button>
-    </div>
-</form>
-
 <script>
-// Convert guardrails textarea → JSON before submit
-document.querySelector('form').addEventListener('submit', function(e) {
-    const raw = document.querySelector('[name=dm_guardrails_raw]').value;
-    const lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
-    const hidden = document.createElement('input');
-    hidden.type = 'hidden';
-    hidden.name = 'dm_guardrails';
-    hidden.value = JSON.stringify(lines);
-    this.appendChild(hidden);
-    document.querySelector('[name=dm_guardrails_raw]').disabled = true;
+document.getElementById('avatar-file').addEventListener('change', function() {
+    if (this.files && this.files[0]) {
+        const reader = new FileReader();
+        reader.onload = e => {
+            const preview = document.getElementById('avatar-preview');
+            preview.innerHTML = '<img src="' + e.target.result + '" class="w-full h-full object-cover">';
+        };
+        reader.readAsDataURL(this.files[0]);
+
+        {% if persona %}
+        // Upload immediately for existing personas
+        const fd = new FormData();
+        fd.append('file', this.files[0]);
+        fetch('/personas/api/personas/{{ persona.persona_name }}/upload_image', {
+            method: 'POST', body: fd
+        });
+        {% endif %}
+    }
 });
 </script>
 {% endblock %}

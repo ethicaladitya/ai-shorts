@@ -2,159 +2,446 @@
 {% block title %}New UGC Video{% endblock %}
 
 {% block content %}
-<div class="mb-8">
-    <a href="/ugc/" class="text-sm text-gray-400 hover:text-gray-600">← UGC Videos</a>
-    <h2 class="text-2xl font-bold text-gray-900 mt-2">New UGC Video</h2>
-    <p class="text-gray-500 text-sm mt-1">Generate an authentic creator-style short-form video</p>
-</div>
+<div class="px-4 sm:px-8 py-6 max-w-5xl mx-auto">
 
-<div class="grid grid-cols-3 gap-6">
-    <!-- Form -->
-    <div class="col-span-2">
-        <form action="/ugc/jobs" method="post" class="bg-white rounded-xl border border-gray-200 p-6 space-y-5" id="ugc-form">
+    <!-- Page header -->
+    <div class="mb-6">
+        <a href="/ugc/" class="text-sm text-slate-400 hover:text-slate-600">← UGC Videos</a>
+        <h2 class="text-2xl font-bold text-slate-900 mt-2">New UGC Video</h2>
+        <p class="text-slate-500 text-sm mt-1">Fill in your creative brief — the AI writes, records, and edits the video.</p>
+    </div>
 
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1.5">Topic / Hook idea</label>
-                <input type="text" name="topic" placeholder="e.g. why I stopped doom-scrolling at night"
-                    class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
-                    required>
-                <p class="text-xs text-gray-400 mt-1">Be specific — the LLM writes the script. Generic topics produce generic scripts.</p>
+    <form action="/ugc/jobs" method="post" enctype="multipart/form-data" id="ugc-form" class="space-y-5">
+
+        <!-- ─── 1. PERSONA / CREATOR ──────────────────────────────────── -->
+        <div class="bg-white rounded-2xl border border-slate-200 p-5">
+            <h3 class="text-sm font-semibold text-slate-800 mb-1">Creator / Persona</h3>
+            <p class="text-xs text-slate-400 mb-4">Pick whose face & voice to use. The persona's social handles will appear in captions.</p>
+
+            {% if db_personas %}
+            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 mb-4">
+                <!-- Custom / no persona -->
+                <label id="persona-card-custom"
+                       class="flex flex-col items-center gap-2 p-3 rounded-xl border-2 border-violet-500 bg-violet-50 cursor-pointer transition hover:border-violet-400">
+                    <input type="radio" name="persona_id" value="" checked class="sr-only" onchange="selectPersona(null)">
+                    <div class="w-12 h-12 rounded-full bg-slate-200 flex items-center justify-center">
+                        <svg class="w-6 h-6 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                    </div>
+                    <span class="text-xs font-medium text-slate-600 text-center">Custom</span>
+                </label>
+
+                {% for p in db_personas %}
+                <label id="persona-card-{{ p.id }}"
+                       class="flex flex-col items-center gap-2 p-3 rounded-xl border-2 border-slate-200 cursor-pointer transition hover:border-violet-300"
+                       onclick="selectPersona({{ p.id }}, '{{ p.voice_provider }}', '{{ p.display_name }}', '{{ p.instagram_username }}', '{{ p.tiktok_username }}')">
+                    <input type="radio" name="persona_id" value="{{ p.id }}" class="sr-only">
+                    {% if p.image_url %}
+                    <img src="{{ p.image_url }}"
+                         class="w-12 h-12 rounded-full object-cover" alt="{{ p.display_name }}">
+                    {% else %}
+                    <div class="w-12 h-12 rounded-full bg-gradient-to-br from-violet-400 to-purple-600 flex items-center justify-center">
+                        <span class="text-white font-bold text-lg">{{ p.display_name[0].upper() }}</span>
+                    </div>
+                    {% endif %}
+                    <span class="text-xs font-medium text-slate-700 text-center truncate w-full text-center">{{ p.display_name }}</span>
+                </label>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <!-- Creator override fields (shown when Custom is selected) -->
+            <div id="creator-custom-fields" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-medium text-slate-600 mb-1">Creator Name (for script)</label>
+                    <input type="text" name="creator_name" id="f-creator-name" placeholder="e.g. Priya Sharma"
+                           class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-400">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-600 mb-1">Age Range</label>
+                    <select name="creator_age_range" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-400">
+                        <option value="">— any —</option>
+                        <option value="18-24">18–24</option>
+                        <option value="25-34">25–34</option>
+                        <option value="35-44">35–44</option>
+                        <option value="45+">45+</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-600 mb-1">Instagram handle</label>
+                    <div class="flex items-center border border-slate-200 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-violet-400">
+                        <span class="px-2 py-2 text-sm text-slate-400 bg-slate-50 border-r border-slate-200">@</span>
+                        <input type="text" name="creator_instagram" id="f-instagram" placeholder="username"
+                               class="flex-1 px-3 py-2 text-sm focus:outline-none">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-600 mb-1">TikTok handle</label>
+                    <div class="flex items-center border border-slate-200 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-violet-400">
+                        <span class="px-2 py-2 text-sm text-slate-400 bg-slate-50 border-r border-slate-200">@</span>
+                        <input type="text" name="creator_tiktok" id="f-tiktok" placeholder="username"
+                               class="flex-1 px-3 py-2 text-sm focus:outline-none">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-600 mb-1">Location / Country</label>
+                    <input type="text" name="creator_location" placeholder="e.g. Mumbai, India"
+                           class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-400">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-600 mb-1">Languages spoken</label>
+                    <input type="text" name="creator_languages" placeholder="e.g. English, Hindi"
+                           class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-400">
+                </div>
             </div>
 
-            <div class="grid grid-cols-2 gap-4">
+            <!-- Persona summary (shown when a DB persona is selected) -->
+            <div id="persona-summary" class="hidden mt-3 p-3 rounded-xl bg-violet-50 border border-violet-200">
+                <p class="text-sm font-semibold text-violet-800" id="ps-name"></p>
+                <div class="flex gap-3 mt-1 text-xs text-violet-600">
+                    <span id="ps-ig" class="hidden">📸 @<span id="ps-ig-handle"></span></span>
+                    <span id="ps-tt" class="hidden">🎵 @<span id="ps-tt-handle"></span></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Hidden persona-name field (legacy) -->
+        <select name="persona_name" class="hidden">
+            {% for slug in personas %}
+            <option value="{{ slug }}" {% if slug == 'zara_chen' %}selected{% endif %}>{{ slug }}</option>
+            {% endfor %}
+        </select>
+
+        <!-- ─── 2. PRODUCT / BRAND ────────────────────────────────────── -->
+        <div class="bg-white rounded-2xl border border-slate-200 p-5">
+            <h3 class="text-sm font-semibold text-slate-800 mb-1">Product / Brand</h3>
+            <p class="text-xs text-slate-400 mb-4">Tell the AI what you're promoting.</p>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1.5">Platform</label>
-                    <select name="platform" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-900">
+                    <label class="block text-xs font-medium text-slate-600 mb-1">Product / Service Name <span class="text-red-400">*</span></label>
+                    <input type="text" name="product_name" placeholder="e.g. GlowSerum Pro"
+                           class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-400" required>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-600 mb-1">Website / App Link</label>
+                    <input type="url" name="product_url" placeholder="https://example.com"
+                           class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-400">
+                </div>
+                <div class="sm:col-span-2">
+                    <label class="block text-xs font-medium text-slate-600 mb-1">Product Description</label>
+                    <textarea name="product_description" rows="2" placeholder="What does it do? Who is it for? What problem does it solve?"
+                              class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-400 resize-none"></textarea>
+                </div>
+                <div class="sm:col-span-2">
+                    <label class="block text-xs font-medium text-slate-600 mb-1">Product Image</label>
+                    <div id="product-drop-zone"
+                         class="relative border-2 border-dashed border-slate-200 rounded-xl p-5 text-center cursor-pointer hover:border-violet-300 transition"
+                         onclick="document.getElementById('product-image-input').click()">
+                        <input id="product-image-input" type="file" name="product_image" accept="image/*" class="hidden"
+                               onchange="previewProductImage(this)">
+                        <div id="product-img-preview" class="hidden mb-3">
+                            <img id="product-img-preview-img" src="" class="h-24 mx-auto rounded-lg object-cover" alt="product">
+                        </div>
+                        <p class="text-xs text-slate-400" id="product-drop-label">
+                            <span class="font-medium text-violet-600">Click to upload</span> or drag &amp; drop product image
+                        </p>
+                        <p class="text-xs text-slate-300 mt-1">PNG, JPG, WebP · max 10 MB</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ─── 3. CAMPAIGN GOAL ─────────────────────────────────────── -->
+        <div class="bg-white rounded-2xl border border-slate-200 p-5">
+            <h3 class="text-sm font-semibold text-slate-800 mb-1">Campaign Goal</h3>
+            <p class="text-xs text-slate-400 mb-4">Tell us what you want this video to achieve.</p>
+
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                    <label class="block text-xs font-medium text-slate-600 mb-1">Platform</label>
+                    <select name="platform" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-400">
                         {% for p in platforms %}
                         <option value="{{ p }}" {% if p == 'tiktok' %}selected{% endif %}>{{ p|capitalize }}</option>
                         {% endfor %}
                     </select>
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1.5">Style</label>
-                    <select name="style" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-900">
-                        {% for s in styles %}
-                        <option value="{{ s }}">{{ s }}</option>
-                        {% endfor %}
+                    <label class="block text-xs font-medium text-slate-600 mb-1">Video Purpose</label>
+                    <select name="video_purpose" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-400">
+                        <option value="ads">Paid Ads</option>
+                        <option value="organic" selected>Organic Social</option>
+                        <option value="website">Website / Landing Page</option>
+                        <option value="testimonial">Testimonial / Review</option>
+                        <option value="educational">Educational / Tutorial</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-600 mb-1">Main Goal</label>
+                    <select name="main_goal" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-400">
+                        <option value="awareness">Brand Awareness</option>
+                        <option value="sales" selected>Drive Sales</option>
+                        <option value="leads">Generate Leads</option>
+                        <option value="installs">App Installs</option>
+                        <option value="trust">Build Trust</option>
+                        <option value="social_proof">Social Proof</option>
                     </select>
                 </div>
             </div>
 
-            <div class="grid grid-cols-2 gap-4">
+            <div class="mt-4">
+                <label class="block text-xs font-medium text-slate-600 mb-1">Topic / Hook idea <span class="text-red-400">*</span></label>
+                <input type="text" name="topic" placeholder="e.g. how I cleared my skin in 7 days using GlowSerum"
+                       class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-400" required>
+                <p class="text-xs text-slate-400 mt-1">Be specific — the LLM writes the script. Generic topics → generic scripts.</p>
+            </div>
+
+            <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 mt-4">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1.5">Duration</label>
-                    <select name="duration_target" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-900">
+                    <label class="block text-xs font-medium text-slate-600 mb-1">Duration</label>
+                    <select name="duration_target" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-400">
                         {% for d in durations %}
                         <option value="{{ d }}" {% if d == 30 %}selected{% endif %}>{{ d }}s</option>
                         {% endfor %}
                     </select>
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1.5">Persona</label>
-                    <input type="text" name="persona_name" value="default"
-                        class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-900">
+                    <label class="block text-xs font-medium text-slate-600 mb-1">Target Audience</label>
+                    <input type="text" name="target_audience" placeholder="e.g. women 25-35, skin care"
+                           class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-400">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-600 mb-1">CTA (call to action)</label>
+                    <input type="text" name="cta_text" placeholder="e.g. Shop now, Link in bio"
+                           class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-400">
+                </div>
+            </div>
+        </div>
+
+        <!-- ─── 4. VIDEO STRUCTURE ───────────────────────────────────── -->
+        <div class="bg-white rounded-2xl border border-slate-200 p-5">
+            <h3 class="text-sm font-semibold text-slate-800 mb-1">Video Structure</h3>
+            <p class="text-xs text-slate-400 mb-4">Select which sections to include in the script.</p>
+
+            <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-4">
+                {% set structure_items = [
+                    ('hook', 'Strong Hook (0–3s)', '🎣'),
+                    ('problem', 'Problem Statement', '😩'),
+                    ('product_demo', 'Product / Demo', '📦'),
+                    ('personal_story', 'Personal Story', '💬'),
+                    ('benefits', 'Key Benefits', '✅'),
+                    ('cta', 'Call to Action', '🔥'),
+                ] %}
+                {% for key, label, emoji in structure_items %}
+                <label class="flex items-center gap-2 p-2.5 rounded-xl border border-slate-200 cursor-pointer hover:border-violet-300 transition has-[:checked]:border-violet-500 has-[:checked]:bg-violet-50">
+                    <input type="checkbox" name="structure_{{ key }}" value="1"
+                           {% if key in ['hook', 'product_demo', 'benefits', 'cta'] %}checked{% endif %}
+                           class="rounded text-violet-600 shrink-0">
+                    <span class="text-xs text-slate-700">{{ emoji }} {{ label }}</span>
+                </label>
+                {% endfor %}
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-medium text-slate-600 mb-1">Hook Style</label>
+                    <select name="hook_style" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-400">
+                        <option value="question">Question ("Have you ever…?")</option>
+                        <option value="bold_claim" selected>Bold Claim ("This changed my life")</option>
+                        <option value="story">Story opener</option>
+                        <option value="statistic">Statistic or fact</option>
+                        <option value="controversy">Controversy / hot take</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-600 mb-1">Additional Notes for Script</label>
+                    <input type="text" name="script_notes" placeholder="e.g. mention 30-day money back"
+                           class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-400">
+                </div>
+            </div>
+        </div>
+
+        <!-- ─── 5. STYLE EXPECTATIONS ────────────────────────────────── -->
+        <div class="bg-white rounded-2xl border border-slate-200 p-5">
+            <h3 class="text-sm font-semibold text-slate-800 mb-1">Style &amp; Tone</h3>
+            <p class="text-xs text-slate-400 mb-4">How should this video feel?</p>
+
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                    <label class="block text-xs font-medium text-slate-600 mb-1">Presentation Style</label>
+                    <select name="style" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-400">
+                        <option value="ugc" selected>UGC / Raw &amp; Authentic</option>
+                        <option value="selfie">Selfie Style</option>
+                        <option value="casual-vlog">Casual Vlog</option>
+                        <option value="polished">Polished / Professional</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-600 mb-1">Energy / Tone</label>
+                    <select name="tone" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-400">
+                        <option value="energetic" selected>Energetic &amp; Upbeat</option>
+                        <option value="calm">Calm &amp; Trustworthy</option>
+                        <option value="funny">Funny / Playful</option>
+                        <option value="emotional">Emotional / Heartfelt</option>
+                        <option value="educational">Educational / Informative</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-600 mb-1">Language</label>
+                    <select name="script_language" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-400">
+                        <option value="en" selected>English</option>
+                        <option value="hi">Hindi</option>
+                        <option value="hinglish">Hinglish</option>
+                        <option value="es">Spanish</option>
+                        <option value="fr">French</option>
+                        <option value="de">German</option>
+                        <option value="pt">Portuguese</option>
+                    </select>
                 </div>
             </div>
 
-            <!-- Hidden provider fields — values driven by sidebar selects -->
-            <input type="hidden" name="script_provider" id="f-script-provider" value="{{ providers.script }}">
-            <input type="hidden" name="image_provider"  id="f-image-provider"  value="{{ providers.image }}">
-            <input type="hidden" name="voice_provider"  id="f-voice-provider"  value="{{ providers.voice }}">
-            <input type="hidden" name="head_provider"   id="f-head-provider"   value="{{ providers.head }}">
-
-            <div class="pt-2 flex items-center justify-between">
-                <p class="text-xs text-gray-400" id="cost-label">
-                    Mode: <strong>{{ ugc_mode }}</strong> ·
-                    Est. cost:
-                    <strong id="cost-value" class="{% if estimated_cost == 0 %}text-green-600{% else %}text-amber-600{% endif %}">
-                        {% if estimated_cost == 0 %}FREE{% else %}~${{ "%.2f"|format(estimated_cost) }}{% endif %}
-                    </strong>
-                </p>
-                <button type="submit"
-                    class="px-5 py-2.5 bg-gray-900 text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition">
-                    Generate Video
-                </button>
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-4">
+                {% set style_flags = [
+                    ('tiktok_style', 'TikTok Style Edits'),
+                    ('trending_audio', 'Trending Audio Vibe'),
+                    ('broll_needed', 'Include B-Roll'),
+                    ('captions_burned', 'Burn-in Captions'),
+                ] %}
+                {% for key, label in style_flags %}
+                <label class="flex items-center gap-2 p-2.5 rounded-xl border border-slate-200 cursor-pointer hover:border-violet-300 transition has-[:checked]:border-violet-500 has-[:checked]:bg-violet-50">
+                    <input type="checkbox" name="flag_{{ key }}" value="1"
+                           {% if key in ['tiktok_style', 'captions_burned'] %}checked{% endif %}
+                           class="rounded text-violet-600 shrink-0">
+                    <span class="text-xs text-slate-700">{{ label }}</span>
+                </label>
+                {% endfor %}
             </div>
-        </form>
-    </div>
-
-    <!-- Provider sidebar -->
-    <div class="space-y-4">
-
-        <!-- Script provider -->
-        <div class="bg-white rounded-xl border border-gray-200 p-5">
-            <div class="flex items-center justify-between mb-3">
-                <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Script</h3>
-                <span id="badge-script" class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-50 text-green-700">{{ providers.script }}</span>
-            </div>
-            <select id="sel-script" onchange="updateProvider('script', this.value)"
-                class="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-gray-900">
-                <option value="ollama" {% if providers.script == 'ollama' %}selected{% endif %}>Ollama (Local — FREE)</option>
-                <option value="azure_openai" {% if providers.script == 'azure_openai' %}selected{% endif %}>Azure OpenAI gpt-4o-mini (API)</option>
-                <option value="openai" {% if providers.script == 'openai' %}selected{% endif %}>OpenAI gpt-4o-mini (API)</option>
-            </select>
         </div>
 
-        <!-- Image provider -->
-        <div class="bg-white rounded-xl border border-gray-200 p-5">
-            <div class="flex items-center justify-between mb-3">
-                <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Images</h3>
-                <span id="badge-image" class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-50 text-green-700">{{ providers.image }}</span>
+        <!-- ─── 6. BRAND ASSETS ──────────────────────────────────────── -->
+        <div class="bg-white rounded-2xl border border-slate-200 p-5">
+            <h3 class="text-sm font-semibold text-slate-800 mb-1">Brand Assets</h3>
+            <p class="text-xs text-slate-400 mb-4">Optional extras to make the script more on-brand.</p>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div class="sm:col-span-2">
+                    <label class="block text-xs font-medium text-slate-600 mb-1">Brand Guidelines / Voice</label>
+                    <textarea name="brand_guidelines" rows="2"
+                              placeholder="e.g. We're a clean beauty brand — never say 'cheap', always say 'affordable luxury'. Our tone is confident and empowering."
+                              class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-400 resize-none"></textarea>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-600 mb-1">Example Video Links</label>
+                    <textarea name="example_videos" rows="2" placeholder="Paste URLs, one per line"
+                              class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-400 resize-none"></textarea>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-600 mb-1">Key Phrases / Must-Say</label>
+                    <textarea name="key_phrases" rows="2" placeholder="e.g. 'glowing skin in 7 days', 'dermatologist approved'"
+                              class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-400 resize-none"></textarea>
+                </div>
             </div>
-            <select id="sel-image" onchange="updateProvider('image', this.value)"
-                class="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-gray-900">
-                <option value="a1111" {% if providers.image == 'a1111' %}selected{% endif %}>A1111 / Stable Diffusion (Local — FREE)</option>
-                <option value="comfyui" {% if providers.image == 'comfyui' %}selected{% endif %}>ComfyUI (Local — FREE)</option>
-                <option value="azure_gpt_image" {% if providers.image == 'azure_gpt_image' %}selected{% endif %}>Azure GPT-Image-2 (API — ~$0.04/img)</option>
-            </select>
         </div>
 
-        <!-- Voice provider -->
-        <div class="bg-white rounded-xl border border-gray-200 p-5">
-            <div class="flex items-center justify-between mb-3">
-                <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Voice</h3>
-                <span id="badge-voice" class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-50 text-green-700">{{ providers.voice }}</span>
+        <!-- ─── 7. ADVANCED — PROVIDERS ──────────────────────────────── -->
+        <details class="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+            <summary class="flex items-center justify-between px-5 py-4 cursor-pointer list-none select-none">
+                <div>
+                    <span class="text-sm font-semibold text-slate-800">Advanced: AI Providers</span>
+                    <p class="text-xs text-slate-400 mt-0.5">
+                        Mode: <strong>{{ ugc_mode }}</strong> ·
+                        Est. cost:
+                        <strong id="cost-value" class="{% if estimated_cost == 0 %}text-green-600{% else %}text-amber-600{% endif %}">
+                            {% if estimated_cost == 0 %}FREE{% else %}~${{ "%.2f"|format(estimated_cost) }}{% endif %}
+                        </strong>
+                    </p>
+                </div>
+                <svg class="w-4 h-4 text-slate-400 transition-transform details-chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                </svg>
+            </summary>
+
+            <div class="px-5 pb-5 pt-1 grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-slate-100">
+                <!-- Script -->
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Script AI</label>
+                    <select id="sel-script" onchange="updateProvider('script', this.value)"
+                            class="w-full px-2.5 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-400">
+                        <option value="ollama" {% if providers.script == 'ollama' %}selected{% endif %}>Ollama (Local — FREE)</option>
+                        <option value="azure_openai" {% if providers.script == 'azure_openai' %}selected{% endif %}>Azure OpenAI gpt-4o-mini</option>
+                        <option value="openai" {% if providers.script == 'openai' %}selected{% endif %}>OpenAI gpt-4o-mini</option>
+                    </select>
+                </div>
+                <!-- Image -->
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Image AI</label>
+                    <select id="sel-image" onchange="updateProvider('image', this.value)"
+                            class="w-full px-2.5 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-400">
+                        <option value="a1111" {% if providers.image == 'a1111' %}selected{% endif %}>A1111 / Stable Diffusion (FREE)</option>
+                        <option value="comfyui" {% if providers.image == 'comfyui' %}selected{% endif %}>ComfyUI (FREE)</option>
+                        <option value="azure_gpt_image" {% if providers.image == 'azure_gpt_image' %}selected{% endif %}>Azure GPT-Image-2 (~$0.04/img)</option>
+                    </select>
+                </div>
+                <!-- Voice -->
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Voice AI</label>
+                    <select id="sel-voice" onchange="updateProvider('voice', this.value)"
+                            class="w-full px-2.5 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-400">
+                        <optgroup label="── Maya (Local · FREE)">
+                            <option value="maya:aditya"   {% if providers.voice == 'maya:aditya' %}selected{% endif %}>Maya — Aditya Shah ★</option>
+                            <option value="maya:of_model" {% if providers.voice == 'maya:of_model' %}selected{% endif %}>Maya — OF Model</option>
+                            <option value="maya"          {% if providers.voice == 'maya' %}selected{% endif %}>Maya — Default</option>
+                        </optgroup>
+                        <optgroup label="── Other Local">
+                            <option value="voicebox" {% if providers.voice == 'voicebox' %}selected{% endif %}>Voicebox (FREE)</option>
+                            <option value="kokoro"   {% if providers.voice == 'kokoro' %}selected{% endif %}>Kokoro (FREE)</option>
+                        </optgroup>
+                        <optgroup label="── Cloud (API cost)">
+                            <option value="azure_openai" {% if providers.voice == 'azure_openai' %}selected{% endif %}>Azure TTS</option>
+                            <option value="elevenlabs"   {% if providers.voice == 'elevenlabs' %}selected{% endif %}>ElevenLabs</option>
+                        </optgroup>
+                    </select>
+                </div>
+                <!-- Head -->
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Talking Head</label>
+                    <select id="sel-head" onchange="updateProvider('head', this.value)"
+                            class="w-full px-2.5 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-400">
+                        <option value="slideshow" {% if providers.head == 'slideshow' %}selected{% endif %}>Slideshow (FREE)</option>
+                        <option value="sadtalker" {% if providers.head == 'sadtalker' %}selected{% endif %}>SadTalker via Replicate (~$0.01)</option>
+                        <option value="replicate_latentsync" {% if providers.head == 'replicate_latentsync' %}selected{% endif %}>Replicate LatentSync (~$0.01)</option>
+                        <option value="syncso" {% if providers.head == 'syncso' %}selected{% endif %}>sync.so (free tier)</option>
+                        <option value="hedra" {% if providers.head == 'hedra' %}selected{% endif %}>Hedra (~$0.05/video)</option>
+                    </select>
+                </div>
             </div>
-            <select id="sel-voice" onchange="updateProvider('voice', this.value)"
-                class="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-gray-900">
-                <option value="voicebox" {% if providers.voice == 'voicebox' %}selected{% endif %}>Voicebox (Local — FREE, best quality)</option>
-                <option value="kokoro" {% if providers.voice == 'kokoro' %}selected{% endif %}>Kokoro direct (Local — FREE)</option>
-                <option value="azure_openai" {% if providers.voice == 'azure_openai' %}selected{% endif %}>Azure TTS (API — low cost)</option>
-                <option value="elevenlabs" {% if providers.voice == 'elevenlabs' %}selected{% endif %}>ElevenLabs (API)</option>
-            </select>
+        </details>
+
+        <!-- Hidden provider fields — values driven by Advanced selects -->
+        <input type="hidden" name="script_provider" id="f-script-provider" value="{{ providers.script }}">
+        <input type="hidden" name="image_provider"  id="f-image-provider"  value="{{ providers.image }}">
+        <input type="hidden" name="voice_provider"  id="f-voice-provider"  value="{{ providers.voice }}">
+        <input type="hidden" name="head_provider"   id="f-head-provider"   value="{{ providers.head }}">
+
+        <!-- ─── SUBMIT ───────────────────────────────────────────────── -->
+        <div class="bg-blue-50 border border-blue-100 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div>
+                <p class="text-sm font-semibold text-blue-800">Approval checkpoint enabled</p>
+                <p class="text-xs text-blue-600 mt-0.5">Pipeline pauses after script + images — you review before rendering begins.</p>
+            </div>
+            <button type="submit"
+                    class="w-full sm:w-auto flex-shrink-0 px-6 py-3 bg-slate-900 text-white text-sm font-semibold rounded-xl hover:bg-slate-800 active:scale-95 transition">
+                Generate Video →
+            </button>
         </div>
 
-        <!-- Talking head provider -->
-        <div class="bg-white rounded-xl border border-gray-200 p-5">
-            <div class="flex items-center justify-between mb-3">
-                <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Talking Head</h3>
-                <span id="badge-head" class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-50 text-green-700">{{ providers.head }}</span>
-            </div>
-            <select id="sel-head" onchange="updateProvider('head', this.value)"
-                class="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-gray-900">
-                <option value="slideshow" {% if providers.head == 'slideshow' %}selected{% endif %}>Slideshow (Local — FREE)</option>
-                <option value="sadtalker" {% if providers.head == 'sadtalker' %}selected{% endif %}>SadTalker via Replicate (~$0.01)</option>
-                <option value="replicate_latentsync" {% if providers.head == 'replicate_latentsync' %}selected{% endif %}>Replicate LatentSync (~$0.01)</option>
-                <option value="syncso" {% if providers.head == 'syncso' %}selected{% endif %}>sync.so (free tier)</option>
-                <option value="hedra" {% if providers.head == 'hedra' %}selected{% endif %}>Hedra (~$0.05/video)</option>
-            </select>
-        </div>
-
-        <div class="bg-blue-50 border border-blue-100 rounded-xl p-4">
-            <p class="text-xs font-semibold text-blue-800 mb-1">Approval checkpoint</p>
-            <p class="text-xs text-blue-700">
-                Pipeline pauses after script + images.
-                You'll review before rendering begins.
-            </p>
-        </div>
-    </div>
+    </form>
 </div>
 
 <script>
-const LOCAL_PROVIDERS = new Set(['ollama','a1111','comfyui','kokoro','sadtalker','slideshow','ffmpeg','latentsync']);
-
+/* ── Provider cost map ── */
 const PROVIDER_COSTS = {
-    'ollama': 0, 'a1111': 0, 'comfyui': 0, 'kokoro': 0,
+    'ollama': 0, 'a1111': 0, 'comfyui': 0, 'kokoro': 0, 'voicebox': 0,
+    'maya': 0, 'maya:aditya': 0, 'maya:of_model': 0,
     'sadtalker': 0.01, 'slideshow': 0, 'latentsync': 0,
     'replicate_latentsync': 0.01, 'syncso': 0,
     'azure_openai': 0.001, 'openai': 0.002,
@@ -164,11 +451,6 @@ const PROVIDER_COSTS = {
 
 function updateProvider(stage, value) {
     document.getElementById('f-' + stage + '-provider').value = value;
-    const badge = document.getElementById('badge-' + stage);
-    badge.textContent = value;
-    const isLocal = LOCAL_PROVIDERS.has(value);
-    badge.className = 'inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ' +
-        (isLocal ? 'bg-green-50 text-green-700' : 'bg-amber-50 text-amber-700');
     recalcCost();
 }
 
@@ -188,5 +470,95 @@ function recalcCost() {
         el.className = 'text-amber-600';
     }
 }
+
+/* ── Persona selection ── */
+function selectPersona(id, voiceProvider, name, instagram, tiktok) {
+    // Deselect all persona cards
+    document.querySelectorAll('[id^="persona-card-"]').forEach(el => {
+        el.classList.remove('border-violet-500', 'bg-violet-50');
+        el.classList.add('border-slate-200');
+    });
+
+    if (id === null) {
+        // Custom selected
+        document.getElementById('persona-card-custom').classList.add('border-violet-500', 'bg-violet-50');
+        document.getElementById('creator-custom-fields').classList.remove('hidden');
+        document.getElementById('persona-summary').classList.add('hidden');
+        document.querySelector('input[name="persona_id"][value=""]').checked = true;
+        return;
+    }
+
+    // DB persona selected
+    const card = document.getElementById('persona-card-' + id);
+    if (card) {
+        card.classList.add('border-violet-500', 'bg-violet-50');
+        card.classList.remove('border-slate-200');
+        card.querySelector('input[type="radio"]').checked = true;
+    }
+    document.getElementById('creator-custom-fields').classList.add('hidden');
+
+    // Show summary
+    const summary = document.getElementById('persona-summary');
+    summary.classList.remove('hidden');
+    document.getElementById('ps-name').textContent = name;
+    if (instagram) {
+        document.getElementById('ps-ig').classList.remove('hidden');
+        document.getElementById('ps-ig-handle').textContent = instagram;
+    } else {
+        document.getElementById('ps-ig').classList.add('hidden');
+    }
+    if (tiktok) {
+        document.getElementById('ps-tt').classList.remove('hidden');
+        document.getElementById('ps-tt-handle').textContent = tiktok;
+    } else {
+        document.getElementById('ps-tt').classList.add('hidden');
+    }
+
+    // Update voice provider
+    if (voiceProvider) {
+        document.getElementById('f-voice-provider').value = voiceProvider;
+        const sel = document.getElementById('sel-voice');
+        if (sel) sel.value = voiceProvider;
+        recalcCost();
+    }
+}
+
+/* ── Product image preview ── */
+function previewProductImage(input) {
+    if (input.files && input.files[0]) {
+        const reader = new FileReader();
+        reader.onload = e => {
+            document.getElementById('product-img-preview-img').src = e.target.result;
+            document.getElementById('product-img-preview').classList.remove('hidden');
+            document.getElementById('product-drop-label').textContent = input.files[0].name;
+        };
+        reader.readAsDataURL(input.files[0]);
+    }
+}
+
+/* ── Product image drag & drop ── */
+const dropZone = document.getElementById('product-drop-zone');
+['dragenter','dragover'].forEach(evt => {
+    dropZone.addEventListener(evt, e => { e.preventDefault(); dropZone.classList.add('border-violet-400','bg-violet-50'); });
+});
+['dragleave','drop'].forEach(evt => {
+    dropZone.addEventListener(evt, e => { e.preventDefault(); dropZone.classList.remove('border-violet-400','bg-violet-50'); });
+});
+dropZone.addEventListener('drop', e => {
+    const file = e.dataTransfer.files[0];
+    if (file) {
+        const dt = new DataTransfer();
+        dt.items.add(file);
+        document.getElementById('product-image-input').files = dt.files;
+        previewProductImage(document.getElementById('product-image-input'));
+    }
+});
+
+/* ── Details chevron ── */
+document.querySelector('details').addEventListener('toggle', function() {
+    const chevron = this.querySelector('.details-chevron');
+    if (this.open) chevron.style.transform = 'rotate(180deg)';
+    else chevron.style.transform = '';
+});
 </script>
 {% endblock %}

@@ -67,7 +67,10 @@ def build_user_prompt(
 
 Topic: {topic}
 Style: {style}
-Target: ~{word_limit} words maximum (will be spoken aloud at natural pace){persona_voice}{pillar_note}
+HARD LIMIT: {word_limit} words MAX — count words carefully, stop early if needed{persona_voice}{pillar_note}
+
+A person speaking naturally reads about 130-150 words per minute. For {duration_target} seconds that is {word_limit} words.
+Do NOT go over {word_limit} words. If you are at the limit, end the script — cut the CTA short if needed.
 
 Structure (no headers, just flow naturally):
 1. HOOK — a specific, surprising, or relatable observation that makes someone stop scrolling (first 3 seconds)

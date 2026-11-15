@@ -51,6 +51,11 @@ async def settings_page(request: Request, db: Session = Depends(get_db)):
         "azure_speech_region": _get_setting(db, "azure_speech_region", settings.azure_speech_region),
         "azure_speech_api_key": _get_setting(db, "azure_speech_api_key", settings.azure_speech_api_key),
         "azure_speech_voice": _get_setting(db, "azure_speech_voice", settings.azure_speech_voice),
+        "maya_voice_description": _get_setting(db, "maya_voice_description", settings.maya_voice_description),
+        "maya_device": _get_setting(db, "maya_device", settings.maya_device),
+        "maya_model_id": _get_setting(db, "maya_model_id", settings.maya_model_id),
+        "maya_profile_aditya":   _get_setting(db, "maya_profile_aditya",   settings.maya_profile_aditya),
+        "maya_profile_of_model": _get_setting(db, "maya_profile_of_model", settings.maya_profile_of_model),
     }
     # Patch runtime settings for this request (so template shows correct values)
     for k, v in db_settings.items():
@@ -84,6 +89,11 @@ async def save_settings(
     azure_speech_region: str = Form(""),
     azure_speech_api_key: str = Form(""),
     azure_speech_voice: str = Form(""),
+    maya_voice_description: str = Form(""),
+    maya_device: str = Form("auto"),
+    maya_model_id: str = Form(""),
+    maya_profile_aditya: str = Form(""),
+    maya_profile_of_model: str = Form(""),
     db: Session = Depends(get_db),
 ):
     _set_setting(db, "ai_provider", ai_provider)
@@ -122,6 +132,16 @@ async def save_settings(
         _set_setting(db, "azure_speech_api_key", azure_speech_api_key)
     if azure_speech_voice:
         _set_setting(db, "azure_speech_voice", azure_speech_voice)
+    if maya_voice_description:
+        _set_setting(db, "maya_voice_description", maya_voice_description)
+    if maya_device:
+        _set_setting(db, "maya_device", maya_device)
+    if maya_model_id:
+        _set_setting(db, "maya_model_id", maya_model_id)
+    if maya_profile_aditya:
+        _set_setting(db, "maya_profile_aditya", maya_profile_aditya)
+    if maya_profile_of_model:
+        _set_setting(db, "maya_profile_of_model", maya_profile_of_model)
 
     # Update runtime settings for current process
     settings.ai_provider = ai_provider
@@ -160,6 +180,16 @@ async def save_settings(
         settings.azure_speech_api_key = azure_speech_api_key
     if azure_speech_voice:
         settings.azure_speech_voice = azure_speech_voice
+    if maya_voice_description:
+        settings.maya_voice_description = maya_voice_description
+    if maya_device:
+        settings.maya_device = maya_device
+    if maya_model_id:
+        settings.maya_model_id = maya_model_id
+    if maya_profile_aditya:
+        settings.maya_profile_aditya = maya_profile_aditya
+    if maya_profile_of_model:
+        settings.maya_profile_of_model = maya_profile_of_model
 
     return HTMLResponse(
         '<div class="bg-green-50 border border-green-200 rounded-lg p-4 text-green-700">'

@@ -3,109 +3,270 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}AI Shorts{% endblock %} — AI Shorts System</title>
+    <title>{% block title %}ReelForge{% endblock %} — AI Video Studio</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/htmx.org@2.0.4"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
         body { font-family: 'Inter', sans-serif; }
         .htmx-indicator { display: none; }
         .htmx-request .htmx-indicator { display: inline-flex; }
         .htmx-request.htmx-indicator { display: inline-flex; }
-        @keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
-        .animate-pulse-dot { animation: pulse-dot 1.5s ease-in-out infinite; }
-        .sidebar-link { transition: all 0.15s ease; }
-        .sidebar-link:hover { background-color: #f3f4f6; }
-        .sidebar-link.active { background-color: #f0f9ff; color: #0284c7; border-right: 3px solid #0284c7; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .spin { animation: spin 1s linear infinite; }
+        /* Sidebar nav links */
+        .nav-link {
+            display: flex; align-items: center; gap: 10px;
+            padding: 8px 12px; border-radius: 8px;
+            font-size: 13.5px; font-weight: 500; color: #94a3b8;
+            transition: background 0.15s, color 0.15s;
+            text-decoration: none;
+        }
+        .nav-link:hover { background: rgba(255,255,255,0.07); color: #e2e8f0; }
+        .nav-link.active { background: rgba(139,92,246,0.18); color: #a78bfa; }
+        .nav-link svg { flex-shrink: 0; opacity: 0.7; }
+        .nav-link:hover svg, .nav-link.active svg { opacity: 1; }
+        /* Section label */
+        .nav-section { font-size: 10px; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.08em; color: #475569; padding: 16px 12px 4px; }
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+        /* Mobile sidebar transition */
+        #sidebar {
+            transition: transform 0.25s cubic-bezier(0.4,0,0.2,1);
+        }
+        #sidebar-overlay {
+            transition: opacity 0.25s ease;
+        }
     </style>
     <script>
         tailwind.config = {
-            theme: {
-                extend: {
-                    fontFamily: { sans: ['Inter', 'sans-serif'] },
-                }
-            }
+            theme: { extend: { fontFamily: { sans: ['Inter', 'sans-serif'] } } }
         }
     </script>
+    {% block head %}{% endblock %}
 </head>
-<body class="h-full bg-gray-50">
-    <div class="flex h-full">
-        <!-- Sidebar -->
-        <aside class="w-64 bg-white border-r border-gray-200 flex flex-col flex-shrink-0">
-            <div class="px-6 py-5 border-b border-gray-100">
-                <h1 class="text-xl font-bold text-gray-900 tracking-tight">AI Shorts</h1>
-                <p class="text-xs text-gray-400 mt-0.5">Video Automation System</p>
+<body class="h-full bg-slate-950 flex flex-col lg:flex-row">
+
+    <!-- Mobile header bar -->
+    <header class="lg:hidden flex items-center justify-between px-4 py-3 bg-slate-950 border-b border-slate-800 sticky top-0 z-30">
+        <div class="flex items-center gap-2.5">
+            <div class="w-7 h-7 rounded-lg bg-gradient-to-br from-violet-500 to-purple-700 flex items-center justify-center flex-shrink-0">
+                <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.069A1 1 0 0121 8.869V15.13a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                </svg>
             </div>
-            <nav class="flex-1 py-4 px-3 space-y-1">
-                <a href="/" class="sidebar-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-700 {% if request.url.path == '/' %}active{% endif %}">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
-                    Dashboard
-                </a>
-                <a href="/videos/create" class="sidebar-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-700 {% if '/create' in request.url.path %}active{% endif %}">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 4v16m8-8H4"/></svg>
-                    Create Video
-                </a>
-                <a href="/knowledge" class="sidebar-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-700 {% if '/knowledge' in request.url.path %}active{% endif %}">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
-                    Knowledge
-                </a>
-                <a href="/avatar" class="sidebar-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-700 {% if '/avatar' in request.url.path %}active{% endif %}">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 10l4.553-2.069A1 1 0 0121 8.869V15.13a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
-                    Avatar Video
-                </a>
-                <a href="/ugc/" class="sidebar-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-700 {% if '/ugc' in request.url.path %}active{% endif %}">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z"/></svg>
-                    UGC Videos
-                </a>
-                <a href="/personas/" class="sidebar-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-700 {% if '/personas' in request.url.path %}active{% endif %}">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                    Personas
-                </a>
-                <a href="/dms/" class="sidebar-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-700 {% if '/dms' in request.url.path %}active{% endif %}">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
-                    DM Inbox
-                </a>
-                <a href="/costs/" class="sidebar-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-700 {% if '/costs' in request.url.path %}active{% endif %}">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                    Cost Tracker
-                </a>
-                <a href="/queue" class="sidebar-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-700 {% if '/queue' in request.url.path %}active{% endif %}">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
-                    Render Queue
-                </a>
-                <a href="/persona/" target="_blank" class="sidebar-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-700">
-                    <svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
-                    Persona Studio ↗
-                </a>
-                <a href="/settings" class="sidebar-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-700 {% if '/settings' in request.url.path %}active{% endif %}">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                    AI Settings
-                </a>
-            </nav>
-            <div class="px-4 py-3 border-t border-gray-100 text-xs text-gray-400">
-                v1.0.0 · <a href="/api/docs" class="hover:text-gray-600">API Docs</a>
+            <p class="text-sm font-bold text-white">ReelForge</p>
+        </div>
+        <div class="flex items-center gap-3">
+            <!-- Mobile credits badge -->
+            {% set credits_m = request.state.credits if request.state is defined and request.state.credits is defined else none %}
+            {% if credits_m is not none %}
+            <a href="/billing" class="flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-800 text-xs text-slate-300">
+                <svg class="w-3 h-3 text-violet-400" fill="currentColor" viewBox="0 0 20 20"><circle cx="10" cy="10" r="8"/></svg>
+                {{ credits_m }}
+            </a>
+            {% endif %}
+            <!-- Hamburger button -->
+            <button id="menu-btn" onclick="openSidebar()" class="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+                </svg>
+            </button>
+        </div>
+    </header>
+
+    <!-- Mobile overlay backdrop -->
+    <div id="sidebar-overlay" onclick="closeSidebar()"
+         class="hidden fixed inset-0 bg-black/60 z-40 lg:hidden"></div>
+
+    <!-- Sidebar -->
+    <aside id="sidebar"
+           class="fixed top-0 left-0 h-full w-72 flex flex-col bg-slate-950 border-r border-slate-800 z-50
+                  -translate-x-full
+                  lg:translate-x-none lg:static lg:w-60 lg:flex-shrink-0 lg:h-screen lg:sticky lg:top-0">
+
+        <!-- Logo + close button -->
+        <div class="px-5 py-5 border-b border-slate-800 flex items-center gap-3">
+            <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-purple-700 flex items-center justify-center flex-shrink-0">
+                <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.069A1 1 0 0121 8.869V15.13a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                </svg>
             </div>
-            {% if request.session.get("user_email") %}
-            <div class="px-4 py-3 border-t border-gray-100 flex items-center gap-3">
+            <div class="flex-1">
+                <p class="text-sm font-bold text-white leading-none">ReelForge</p>
+                <p class="text-xs text-slate-500 mt-0.5">AI Video Studio</p>
+            </div>
+            <!-- Close button (mobile only) -->
+            <button onclick="closeSidebar()" class="lg:hidden p-1 rounded-lg text-slate-500 hover:text-white hover:bg-slate-800 transition">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+
+        <!-- Nav -->
+        <nav class="flex-1 py-3 px-3 overflow-y-auto space-y-0.5">
+            {% set perms = request.state.perms if request.state is defined and request.state.perms is defined else none %}
+            {% set path = request.url.path %}
+
+            <!-- Dashboard -->
+            <a href="/" onclick="closeSidebar()" class="nav-link {% if path == '/' %}active{% endif %}">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
+                Dashboard
+            </a>
+
+            <!-- Create Videos section -->
+            <div class="nav-section">Create</div>
+
+            {% if not perms or perms.can_avatar_video %}
+            <a href="/avatar" onclick="closeSidebar()" class="nav-link {% if '/avatar' in path %}active{% endif %}">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                Avatar Video
+            </a>
+            {% endif %}
+
+            {% if not perms or perms.can_ugc_video %}
+            <a href="/ugc/" onclick="closeSidebar()" class="nav-link {% if '/ugc' in path %}active{% endif %}">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.069A1 1 0 0121 8.869V15.13a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                UGC Videos
+            </a>
+            {% endif %}
+
+            {% if not perms or perms.can_create_video %}
+            <a href="/faceless" onclick="closeSidebar()" class="nav-link {% if '/faceless' in path %}active{% endif %}">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z"/></svg>
+                Faceless Reels
+            </a>
+            {% endif %}
+
+            <!-- Manage section -->
+            <div class="nav-section">Manage</div>
+
+            {% if not perms or perms.can_personas %}
+            <a href="/personas/" onclick="closeSidebar()" class="nav-link {% if '/personas' in path %}active{% endif %}">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                Personas
+            </a>
+            {% endif %}
+
+            {% if not perms or perms.can_dms %}
+            <a href="/dms/" onclick="closeSidebar()" class="nav-link {% if '/dms' in path %}active{% endif %}">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+                DM Inbox
+            </a>
+            {% endif %}
+
+            {% if not perms or perms.can_queue %}
+            <a href="/queue" onclick="closeSidebar()" class="nav-link {% if '/queue' in path %}active{% endif %}">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+                Queue
+            </a>
+            {% endif %}
+
+            {% if not perms or perms.can_knowledge %}
+            <a href="/knowledge" onclick="closeSidebar()" class="nav-link {% if '/knowledge' in path %}active{% endif %}">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
+                Knowledge
+            </a>
+            {% endif %}
+
+            <!-- Account section -->
+            <div class="nav-section">Account</div>
+
+            <a href="/billing" onclick="closeSidebar()" class="nav-link {% if '/billing' in path %}active{% endif %}">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
+                Credits & Billing
+            </a>
+
+            {% if not perms or perms.can_costs %}
+            <a href="/costs/" onclick="closeSidebar()" class="nav-link {% if '/costs' in path %}active{% endif %}">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+                Cost Tracker
+            </a>
+            {% endif %}
+
+            {% if not perms or perms.can_settings %}
+            <a href="/settings" onclick="closeSidebar()" class="nav-link {% if '/settings' in path %}active{% endif %}">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                Settings
+            </a>
+            {% endif %}
+
+            <!-- Admin -->
+            {% if perms and perms.is_super_admin %}
+            <div class="nav-section">Admin</div>
+            <a href="/admin" onclick="closeSidebar()" class="nav-link {% if path == '/admin' %}active{% endif %}">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+                Users
+            </a>
+            <a href="/admin/costs" onclick="closeSidebar()" class="nav-link {% if '/admin/costs' in path %}active{% endif %}">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                System Costs
+            </a>
+            {% endif %}
+        </nav>
+
+        <!-- User footer -->
+        {% if request.session.get("user_email") %}
+        <div class="px-3 py-3 border-t border-slate-800">
+            <!-- Credits badge -->
+            {% set credits = request.state.credits if request.state is defined and request.state.credits is defined else none %}
+            {% if credits is not none %}
+            <a href="/billing" class="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-800/60 hover:bg-slate-800 mb-2 transition">
+                <svg class="w-3.5 h-3.5 text-violet-400" fill="currentColor" viewBox="0 0 20 20"><path d="M10 2a8 8 0 100 16A8 8 0 0010 2zm0 14a6 6 0 110-12 6 6 0 010 12zm-1-5h2v2H9v-2zm0-6h2v4H9V5z"/></svg>
+                <span class="text-xs text-slate-300">{{ credits }} credit{{ 's' if credits != 1 }}</span>
+                <span class="ml-auto text-xs text-violet-400 font-medium">Buy more →</span>
+            </a>
+            {% endif %}
+            <div class="flex items-center gap-2.5">
                 {% if request.session.get("user_picture") %}
-                <img src="{{ request.session.get('user_picture') }}" class="w-7 h-7 rounded-full" alt="avatar">
+                <img src="{{ request.session.get('user_picture') }}" class="w-7 h-7 rounded-full flex-shrink-0" alt="">
+                {% else %}
+                <div class="w-7 h-7 rounded-full bg-violet-600 flex items-center justify-center flex-shrink-0">
+                    <span class="text-xs font-bold text-white">{{ (request.session.get('user_name','?'))[0].upper() }}</span>
+                </div>
                 {% endif %}
                 <div class="flex-1 min-w-0">
-                    <p class="text-xs font-medium text-gray-700 truncate">{{ request.session.get("user_name", "") }}</p>
+                    <p class="text-xs font-medium text-slate-300 truncate">{{ request.session.get("user_name", "") }}</p>
+                    {% if perms and perms.is_super_admin %}
+                    <p class="text-xs text-violet-400">Super Admin</p>
+                    {% endif %}
                 </div>
-                <a href="/auth/logout" class="text-xs text-gray-400 hover:text-gray-600" title="Sign out">
+                <a href="/auth/logout" class="text-slate-500 hover:text-slate-300 transition" title="Sign out">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
                 </a>
             </div>
-            {% endif %}
-        </aside>
+        </div>
+        {% endif %}
+    </aside>
 
-        <!-- Main Content -->
-        <main class="flex-1 overflow-y-auto">
-            <div class="max-w-6xl mx-auto px-8 py-8">
-                {% block content %}{% endblock %}
-            </div>
-        </main>
-    </div>
+    <!-- Main Content -->
+    <main class="flex-1 overflow-y-auto bg-slate-100 min-h-screen">
+        {% block content %}{% endblock %}
+    </main>
+
+    <script>
+        function openSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebar-overlay');
+            sidebar.classList.remove('-translate-x-full');
+            overlay.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
+        function closeSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebar-overlay');
+            sidebar.classList.add('-translate-x-full');
+            overlay.classList.add('hidden');
+            document.body.style.overflow = '';
+        }
+        // Close sidebar on lg breakpoint resize
+        window.addEventListener('resize', () => {
+            if (window.innerWidth >= 1024) closeSidebar();
+        });
+    </script>
 </body>
 </html>

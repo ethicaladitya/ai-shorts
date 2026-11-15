@@ -19,7 +19,7 @@ class PersonaVoiceGenerator:
         self.config_path = Path(__file__).parent / "profiles.yaml"
         with open(self.config_path, "r") as f:
             self.config = yaml.safe_load(f)
-        
+
         self.preprocessor = VoicePreprocessor()
         self.postprocessor = AudioPostProcessor()
         self.scorer = AudioScorer()
@@ -37,6 +37,10 @@ class PersonaVoiceGenerator:
         from app.services.voice_provider import get_voice_provider
         self._provider = get_voice_provider(
             provider_name=provider_name,
+            # Maya params
+            maya_voice_description=settings.maya_voice_description,
+            maya_device=settings.maya_device,
+            maya_model_id=settings.maya_model_id,
             # Voicebox params
             voicebox_url=settings.voicebox_url,
             voicebox_engine=settings.voicebox_engine,

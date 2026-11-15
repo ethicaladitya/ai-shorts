@@ -36,7 +36,14 @@ class PersonaSystemSettings(BaseSettings):
     ollama_base_url: str = "http://localhost:11434"
     ollama_model: str = "qwen2.5:7b"
 
-    voice_provider: str = "azure_openai"
+    voice_provider: str = "maya"
+    # Maya1 TTS (default provider — https://maya1.org)
+    maya_voice_description: str = (
+        "A young woman in her late 20s with an American accent. "
+        "Warm, expressive, conversational tone with clear diction."
+    )
+    maya_device: str = "auto"
+    maya_model_id: str = "maya-research/maya1"
     voicebox_url: str = "http://localhost:17493"
     voicebox_engine: str = "qwen"
     voicebox_profile_id: str = ""

@@ -2,10 +2,11 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Form, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from pathlib import Path
@@ -42,9 +43,36 @@ async def ugc_list(request: Request, db: Session = Depends(get_db)):
 # ── Create job form ───────────────────────────────────────────────────────────
 
 @router.get("/create", response_class=HTMLResponse)
-async def ugc_create_form(request: Request):
+async def ugc_create_form(request: Request, db: Session = Depends(get_db)):
+    from pathlib import Path as _Path
+    from app.models import PersonaAccount
     providers = resolve_providers(settings)
     cost = estimate_cost(providers)
+
+    # DB personas with image URL pre-computed
+    raw_personas = db.query(PersonaAccount).filter_by(is_active=True).all()
+    db_personas = []
+    for p in raw_personas:
+        image_url = None
+        if p.reference_image_path:
+            filename = _Path(p.reference_image_path).name
+            image_url = f"/persona_avatars/{p.slug}/{filename}"
+        db_personas.append({
+            "id": p.id,
+            "slug": p.slug,
+            "display_name": p.display_name,
+            "voice_provider": p.voice_provider or "",
+            "instagram_username": p.instagram_username or "",
+            "tiktok_username": p.tiktok_username or "",
+            "image_url": image_url,
+        })
+
+    # Discover available YAML personas (legacy)
+    personas_dir = _Path(settings.data_dir).parent / "persona_system" / "config" / "personas"
+    persona_slugs = sorted(
+        p.stem for p in personas_dir.glob("*.yaml") if not p.stem.startswith("_")
+    ) if personas_dir.exists() else ["default"]
+
     return templates.TemplateResponse(
         "ugc/create.html",
         {
@@ -55,6 +83,8 @@ async def ugc_create_form(request: Request):
             "providers": providers,
             "estimated_cost": cost,
             "ugc_mode": settings.ugc_mode,
+            "personas": persona_slugs,
+            "db_personas": db_personas,
         },
     )
 
@@ -65,15 +95,54 @@ async def ugc_create_form(request: Request):
 async def ugc_create_job(
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
+    # Core
     persona_name: str = Form("default"),
+    persona_id: Optional[str] = Form(""),
     topic: str = Form(""),
     style: str = Form("ugc"),
     platform: str = Form("tiktok"),
     duration_target: int = Form(30),
+    # Providers
     script_provider: str = Form(""),
     image_provider: str = Form(""),
     voice_provider: str = Form(""),
     head_provider: str = Form(""),
+    # Product
+    product_name: str = Form(""),
+    product_description: str = Form(""),
+    product_url: str = Form(""),
+    # Creator
+    creator_name: str = Form(""),
+    creator_instagram: str = Form(""),
+    creator_tiktok: str = Form(""),
+    creator_location: str = Form(""),
+    creator_languages: str = Form(""),
+    creator_age_range: str = Form(""),
+    # Campaign
+    video_purpose: str = Form("organic"),
+    main_goal: str = Form("sales"),
+    target_audience: str = Form(""),
+    cta_text: str = Form(""),
+    # Script brief
+    hook_style: str = Form("bold_claim"),
+    tone: str = Form("energetic"),
+    script_language: str = Form("en"),
+    script_notes: str = Form(""),
+    brand_guidelines: str = Form(""),
+    example_videos: str = Form(""),
+    key_phrases: str = Form(""),
+    # Structure checkboxes
+    structure_hook: Optional[str] = Form(None),
+    structure_problem: Optional[str] = Form(None),
+    structure_product_demo: Optional[str] = Form(None),
+    structure_personal_story: Optional[str] = Form(None),
+    structure_benefits: Optional[str] = Form(None),
+    structure_cta: Optional[str] = Form(None),
+    # Style checkboxes
+    flag_tiktok_style: Optional[str] = Form(None),
+    flag_trending_audio: Optional[str] = Form(None),
+    flag_broll_needed: Optional[str] = Form(None),
+    flag_captions_burned: Optional[str] = Form(None),
 ):
     # Start from env-configured defaults, then override with any per-job selections
     providers = resolve_providers(settings)
@@ -87,8 +156,28 @@ async def ugc_create_job(
         providers["head"] = head_provider
     cost = estimate_cost(providers)
 
+    # Build structure/style flag JSON
+    structure_flags = json.dumps({
+        "hook": bool(structure_hook),
+        "problem": bool(structure_problem),
+        "product_demo": bool(structure_product_demo),
+        "personal_story": bool(structure_personal_story),
+        "benefits": bool(structure_benefits),
+        "cta": bool(structure_cta),
+    })
+    style_flags = json.dumps({
+        "tiktok_style": bool(flag_tiktok_style),
+        "trending_audio": bool(flag_trending_audio),
+        "broll_needed": bool(flag_broll_needed),
+        "captions_burned": bool(flag_captions_burned),
+    })
+
+    # Resolve persona_id
+    pid = int(persona_id) if persona_id and persona_id.strip().isdigit() else None
+
     job = UGCJob(
         persona_name=persona_name,
+        persona_id=pid,
         topic=topic or "personal story",
         style=style,
         platform=platform,
@@ -99,6 +188,29 @@ async def ugc_create_job(
         head_provider=providers["head"],
         status=UGCJobStatus.PENDING,
         estimated_cost=cost,
+        # Extended brief
+        product_name=product_name,
+        product_description=product_description,
+        product_url=product_url,
+        creator_name=creator_name,
+        creator_instagram=creator_instagram,
+        creator_tiktok=creator_tiktok,
+        creator_location=creator_location,
+        creator_languages=creator_languages,
+        creator_age_range=creator_age_range,
+        video_purpose=video_purpose,
+        main_goal=main_goal,
+        target_audience=target_audience,
+        cta_text=cta_text,
+        hook_style=hook_style,
+        tone=tone,
+        script_language=script_language,
+        script_notes=script_notes,
+        brand_guidelines=brand_guidelines,
+        example_videos=example_videos,
+        key_phrases=key_phrases,
+        structure_flags=structure_flags,
+        style_flags=style_flags,
     )
     db.add(job)
     db.commit()
@@ -126,23 +238,11 @@ async def ugc_job_detail(job_id: int, request: Request, db: Session = Depends(ge
     if not job:
         raise HTTPException(status_code=404, detail="UGC job not found")
 
-    output_url: str | None = None
-    if job.output_file and Path(job.output_file).exists():
-        rel = Path(job.output_file).relative_to(settings.ugc_output_dir.parent)
-        output_url = f"/output/{rel}"
-
-    thumbnail_url: str | None = None
-    if job.thumbnail_file and Path(job.thumbnail_file).exists():
-        rel = Path(job.thumbnail_file).relative_to(settings.ugc_output_dir.parent)
-        thumbnail_url = f"/output/{rel}"
-
     return templates.TemplateResponse(
         "ugc/detail.html",
         {
             "request": request,
             "job": job,
-            "output_url": output_url,
-            "thumbnail_url": thumbnail_url,
         },
     )
 
@@ -199,10 +299,29 @@ async def ugc_regenerate(
 
     job.status = UGCJobStatus.PENDING
     job.error_message = None
-    job.approval_decision = None
+
     if stage == "script":
         job.script_raw = None
         job.script_formatted = None
+        job.scene_images = None
+        job.voice_file = None
+        job.talking_head_file = None
+        job.subtitle_file = None
+        job.output_file = None
+        job.thumbnail_file = None
+        job.approval_decision = None
+
+        # Clean up temp directory on disk
+        from app.services.ugc.utils.temp_files import TempJobDir
+        try:
+            TempJobDir(job_id).cleanup()
+        except Exception as e:
+            logger.warning("Failed to clean up temp dir on reset: %s", e)
+
+    elif stage == "resume":
+        # Keep everything on job, reset only the status so it retries
+        pass
+
     db.commit()
 
     def _run(jid: int):
